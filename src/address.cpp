@@ -22,6 +22,7 @@
 #include "err.hpp"
 #include "tcp_address.hpp"
 #include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
 #include "tipc_address.hpp"
 
 #include <string>
@@ -43,6 +44,15 @@ zmq::address_t::~address_t ()
             resolved.tcp_addr = 0;
         }
     }
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+    else
+    if (protocol == "shm_ipc") {
+        if (resolved.shm_ipc_addr) {
+            delete resolved.shm_ipc_addr;
+            resolved.shm_ipc_addr = 0;
+        }
+    }
+#endif
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     else
     if (protocol == "ipc") {

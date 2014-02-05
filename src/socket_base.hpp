@@ -257,6 +257,10 @@ namespace zmq
         // Bitmask of events being monitored
         int monitor_events;
 
+        // An additional mailbox where commands from connected shm sockets can
+        // be sent.
+        void create_shm_mailbox ();
+
         // Last socket endpoint resolved URI
         std::string last_endpoint;
 

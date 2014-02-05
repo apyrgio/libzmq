@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <new>
+#include <iostream>
 
 #include "epoll.hpp"
 #include "err.hpp"
@@ -151,6 +152,8 @@ void zmq::epoll_t::loop ()
         for (int i = 0; i < n; i ++) {
             poll_entry_t *pe = ((poll_entry_t*) ev_buf [i].data.ptr);
 
+			std::cout << "Received an event " << pe->fd << "\n";
+
             if (pe->fd == retired_fd)
                 continue;
             if (ev_buf [i].events & (EPOLLERR | EPOLLHUP))
@@ -161,8 +164,10 @@ void zmq::epoll_t::loop ()
                 pe->events->out_event ();
             if (pe->fd == retired_fd)
                 continue;
-            if (ev_buf [i].events & EPOLLIN)
+            if (ev_buf [i].events & EPOLLIN) {
+				std::cout << "Epollin\n";
                 pe->events->in_event ();
+			}
         }
 
         //  Destroy retired event sources.

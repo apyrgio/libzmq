@@ -366,7 +366,7 @@ int zmq_send (void *s_, const void *buf_, size_t len_, int flags_)
         errno = err;
         return -1;
     }
-    
+
     //  Note the optimisation here. We don't close the msg object as it is
     //  empty anyway. This may change when implementation of zmq_msg_t changes.
     return rc;

@@ -28,6 +28,8 @@
 #include "array.hpp"
 #include "blob.hpp"
 #include "fd.hpp"
+#include "shm_ring.hpp"
+#include "shm_mpipe.hpp"
 
 namespace zmq
 {
@@ -45,6 +47,9 @@ namespace zmq
     //  read (older messages are discarded)
     int pipepair (zmq::object_t *parents_ [2], zmq::pipe_t* pipes_ [2],
         int hwms_ [2], bool conflate_ [2]);
+
+    int shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
+        int hwms_ [2], bool conflate_, std::string path, shm_pipe_t pipe_type);
 
     struct i_pipe_events
     {
@@ -66,10 +71,12 @@ namespace zmq
         public array_item_t <2>,
         public array_item_t <3>
     {
-        //  This allows pipepair to create pipe objects.
-        friend int pipepair (zmq::object_t *parents_ [2], zmq::pipe_t* pipes_ [2],
-            int hwms_ [2], bool conflate_ [2]);
-            
+        //  This allows pipepair and shm_pipe to create pipe objects.
+        friend int pipepair (zmq::object_t *parents_ [2],
+                zmq::pipe_t* pipes_[2], int hwms_ [2], bool conflate_ [2]);
+        friend int shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
+                int hwms_ [2], bool conflate_, std::string path,
+                shm_pipe_t pipe_type);
     public:
 
         //  Specifies the object to send events to.
@@ -105,7 +112,7 @@ namespace zmq
         //  all the messages on the fly. Causes 'hiccuped' event to be generated
         //  in the peer.
         void hiccup ();
-        
+
         // Ensure the pipe wont block on receiving pipe_term.
         void set_nodelay ();
 
@@ -120,6 +127,13 @@ namespace zmq
 
         // provide a way to link pipe to engine fd. Set on session initialization
         fd_t assoc_fd; //=retired_fd
+
+        // Mark the pipe as inactive for writes.
+        void mark_inactive_write ();
+
+        // Mark the pipe as inactive for reads.
+        void mark_inactive_read ();
+
     private:
 
         //  Type of the underlying lock-free pipe.
@@ -143,6 +157,10 @@ namespace zmq
         //  Pipepair uses this function to let us know about
         //  the peer pipe object.
         void set_peer (pipe_t *pipe_);
+
+        //  Shm_pipe uses this function to let us know about
+        //  the associated mailbox pipe.
+        void set_associated_mailbox_pipe (shm_mpipe_t *shm_mpipe_);
 
         //  Destructor is private. Pipe objects destroy themselves.
         ~pipe_t ();
@@ -213,6 +231,14 @@ namespace zmq
         static int compute_lwm (int hwm_);
 
         bool conflate;
+
+        //  If this pipe is in shared memory, then it doesn't have a peer pipe,
+        //  as the peer is a different process. It has however an
+        //  associated mailbox that it must signal. This associated mailbox
+        //  lies in the address space of the peer process, so we can't possibly
+        //  signal it using mailbox semantics. Instead, we can use the
+        //  following pipe to send commands to it.
+        shm_mpipe_t *associated_mailbox_pipe;
 
         //  Disable copying.
         pipe_t (const pipe_t&);

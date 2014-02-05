@@ -1,4 +1,3 @@
-
 /*
     Copyright (c) 2007-2014 Contributors as noted in the AUTHORS file
 
@@ -18,29 +17,25 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_YPIPE_BASE_HPP_INCLUDED__
-#define __ZMQ_YPIPE_BASE_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_UTILS_HPP_INCLUDED__
+#define __ZMQ_SHM_UTILS_HPP_INCLUDED__
 
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+
+#define SHM_PATH "/dev/shm/zeromq/"
+#define SHM_PATH_LEN 64
 
 namespace zmq
 {
-    // ypipe_base abstracts ypipe and ypipe_conflate specific
-    // classes, one is selected according to a the conflate
-    // socket option
+    int shm_allocate(std::string path, unsigned int size);
+    unsigned int get_ypipe_size ();
+    void prepare_shm_ring (void *mem, unsigned int size);
+    void prepare_shm_cpipe (void *mem, unsigned int size);
 
-    template <typename T> class ypipe_base_t
-    {
-    public:
-        virtual ~ypipe_base_t () {}
-        virtual void write (const T &value_, bool incomplete_) = 0;
-        virtual bool unwrite (T *value_) = 0;
-        virtual bool flush () = 0;
-        virtual bool check_read () = 0;
-        virtual bool read (T *value_) = 0;
-        virtual bool probe (bool (*fn)(const T &)) = 0;
-		virtual void mark_inactive ();
-		virtual void mark_active ();
-    };
+    // Shm* high-level functions
+    void shm_mkdir (const char &name);
+    void *shm_map (std::string path, unsigned int size);
 }
 
+#endif
 #endif

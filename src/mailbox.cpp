@@ -19,6 +19,7 @@
 
 #include "mailbox.hpp"
 #include "err.hpp"
+#include <iostream>
 
 zmq::mailbox_t::mailbox_t ()
 {
@@ -45,21 +46,38 @@ zmq::fd_t zmq::mailbox_t::get_fd ()
     return signaler.get_fd ();
 }
 
+//  This is something not affected by shared memory stuff
 void zmq::mailbox_t::send (const command_t &cmd_)
 {
+	std::cout << "Send a command\n";
     sync.lock ();
     cpipe.write (cmd_, false);
     bool ok = cpipe.flush ();
     sync.unlock ();
-    if (!ok)
+    if (!ok) {
+		std::cout << "Must signal\n";
         signaler.send ();
+	} else {
+		std::cout << "No need to signal\n";
+	}
 }
 
 int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
 {
+    bool ok;
+
     //  Try to get the command straight away.
     if (active) {
-        bool ok = cpipe.read (cmd_);
+		std::cout << "Received mail, but no signal necessary\n";
+
+        // Check the shm_cpipe first
+        if (shm_cpipe) {
+            ok = shm_cpipe->read (cmd_);
+            if (ok)
+                return 0;
+        }
+
+        ok = cpipe.read (cmd_);
         if (ok)
             return 0;
 
@@ -76,9 +94,14 @@ int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
     //  We've got the signal. Now we can switch into active state.
     active = true;
 
+	std::cout << "Received mail by signalling\n";
+
     //  Get a command.
     errno_assert (rc == 0);
-    bool ok = cpipe.read (cmd_);
+    if (shm_cpipe)
+        ok = shm_cpipe->read (cmd_);
+    else
+        ok = cpipe.read (cmd_);
     zmq_assert (ok);
     return 0;
 }

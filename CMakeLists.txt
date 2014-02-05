@@ -383,6 +383,12 @@ set(cxx-sources
         ipc_address.cpp
         ipc_connecter.cpp
         ipc_listener.cpp
+        shm_ipc_address.cpp
+        shm_ipc_connecter.cpp
+        shm_ipc_listener.cpp
+        shm_ipc_connection.cpp
+        shm_ypipe.cpp
+        shm_yqueue.cpp
         kqueue.cpp
         lb.cpp
         mailbox.cpp
@@ -723,6 +729,7 @@ if(ZMQ_BUILD_TESTS)
             test_abstract_ipc
             test_proxy
             test_filter_ipc
+		    test_shm_ipc
     )
     if(HAVE_FORK)
       list(APPEND tests test_fork)

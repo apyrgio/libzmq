@@ -40,6 +40,8 @@
 #endif
 #endif
 
+#include <iostream>
+
 #include "signaler.hpp"
 #include "likely.hpp"
 #include "stdint.hpp"
@@ -72,6 +74,11 @@ zmq::signaler_t::signaler_t ()
 #ifdef HAVE_FORK
     pid = getpid();
 #endif
+}
+
+zmq::signaler_t::signaler_t (int fd)
+{
+    // TODO: Write sth
 }
 
 zmq::signaler_t::~signaler_t ()

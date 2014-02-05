@@ -302,6 +302,10 @@ ZMQ_EXPORT const char *zmq_msg_gets (zmq_msg_t *msg, const char *property);
 #define ZMQ_GSSAPI_PLAINTEXT 65
 #define ZMQ_HANDSHAKE_IVL 66
 #define ZMQ_IDENTITY_FD 67
+#define ZMQ_SHM_IPC_FILTER_PID 68
+#define ZMQ_SHM_IPC_FILTER_UID 69
+#define ZMQ_SHM_IPC_FILTER_GID 70
+#define ZMQ_SHM_BUFFER_SIZE 71
 
 /*  Message options                                                           */
 #define ZMQ_MORE 1

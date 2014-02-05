@@ -62,6 +62,8 @@ bounce (void *server, void *client)
     rc = zmq_send (client, content, 32, 0);
     assert (rc == 32);
 
+	return;
+
     //  Receive message at server side
     char buffer [32];
     rc = zmq_recv (server, buffer, 32, 0);

@@ -20,6 +20,7 @@
 #include <new>
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 #include "platform.hpp"
 
@@ -39,6 +40,7 @@
 #include "socket_base.hpp"
 #include "tcp_listener.hpp"
 #include "ipc_listener.hpp"
+#include "shm_ipc_listener.hpp"
 #include "tipc_listener.hpp"
 #include "tcp_connecter.hpp"
 #include "io_thread.hpp"
@@ -52,6 +54,8 @@
 #include "msg.hpp"
 #include "address.hpp"
 #include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
+#include "shm_mpipe.hpp"
 #include "tcp_address.hpp"
 #include "tipc_address.hpp"
 #ifdef ZMQ_HAVE_OPENPGM
@@ -156,6 +160,24 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
     return &mailbox;
 }
 
+/**
+ * Create a mailbox in shared memory where shm sockets can send commands to.
+ * Note that a new mailbox is not actually created. Mereyly, an shm command pipe
+ * is attached to the existing one.
+ */
+void zmq::socket_base_t::create_shm_mailbox ()
+{
+    mailbox_t *m = get_mailbox ();
+    zmq::shm_cpipe_t *shm_cpipe = m->shm_cpipe;
+
+    if (shm_cpipe) {
+		return;
+    }
+
+    m->shm_cpipe = shm_create_cpipe ();
+    alloc_assert(m->shm_cpipe);
+}
+
 void zmq::socket_base_t::stop ()
 {
     //  Called by ctx when it is terminated (zmq_term).
@@ -178,7 +200,7 @@ int zmq::socket_base_t::parse_uri (const char *uri_,
     }
     protocol_ = uri.substr (0, pos);
     address_ = uri.substr (pos + 3);
-    
+
     if (protocol_.empty () || address_.empty ()) {
         errno = EINVAL;
         return -1;
@@ -191,7 +213,7 @@ int zmq::socket_base_t::check_protocol (const std::string &protocol_)
     //  First check out whether the protcol is something we are aware of.
     if (protocol_ != "inproc" && protocol_ != "ipc" && protocol_ != "tcp" &&
           protocol_ != "pgm" && protocol_ != "epgm" && protocol_ != "tipc" &&
-          protocol_ != "norm") {
+          protocol_ != "norm" && protocol_ != "shm_ipc") {
         errno = EPROTONOSUPPORT;
         return -1;
     }
@@ -214,6 +236,11 @@ int zmq::socket_base_t::check_protocol (const std::string &protocol_)
     //  IPC transport is not available on Windows and OpenVMS.
 #if defined ZMQ_HAVE_WINDOWS || defined ZMQ_HAVE_OPENVMS
     if (protocol_ == "ipc") {
+        //  Unknown protocol.
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+    if (protocol_ == "shm_ipc") {
         //  Unknown protocol.
         errno = EPROTONOSUPPORT;
         return -1;
@@ -247,7 +274,7 @@ void zmq::socket_base_t::attach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
     //  First, register the pipe so that we can terminate it later on.
     pipe_->set_event_sink (this);
     pipes.push_back (pipe_);
-    
+
     //  Let the derived socket type know about new pipe.
     xattach_pipe (pipe_, subscribe_to_all_);
 
@@ -357,6 +384,7 @@ int zmq::socket_base_t::bind (const char *addr_)
     std::string protocol;
     std::string address;
     rc = parse_uri (addr_, protocol, address);
+    std::cout<<"Protocol is "<<protocol<<", address is "<<address<<"\n";
     if (rc != 0)
         return -1;
 
@@ -380,13 +408,14 @@ int zmq::socket_base_t::bind (const char *addr_)
         return connect (addr_);
     }
 
-    //  Remaining trasnports require to be run in an I/O thread, so at this
+    //  Remaining transports require to be run in an I/O thread, so at this
     //  point we'll choose one.
     io_thread_t *io_thread = choose_io_thread (options.affinity);
     if (!io_thread) {
         errno = EMTHREAD;
         return -1;
     }
+    std::cout << "Bind: IO thread num " << io_thread << "\n";
 
     if (protocol == "tcp") {
         tcp_listener_t *listener = new (std::nothrow) tcp_listener_t (
@@ -407,9 +436,34 @@ int zmq::socket_base_t::bind (const char *addr_)
     }
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+    if (protocol == "shm_ipc") {
+        shm_ipc_listener_t *listener = new (std::nothrow)
+            shm_ipc_listener_t (io_thread, this, options);
+        alloc_assert (listener);
+        int rc = listener->set_address (address.c_str ());
+        if (rc != 0) {
+            std::cout << "Bind failed\n";
+            delete listener;
+            event_bind_failed (address, zmq_errno());
+            return -1;
+        }
+
+        // Create an shm mailbox to allow connected sockets to send commands to
+        // it.
+        create_shm_mailbox();
+
+        // Save last endpoint URI
+        listener->get_address (last_endpoint);
+
+        add_endpoint (addr_, (own_t *) listener, NULL);
+        return 0;
+    }
+#endif
+
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     if (protocol == "ipc") {
         ipc_listener_t *listener = new (std::nothrow) ipc_listener_t (
-            io_thread, this, options);
+                io_thread, this, options);
         alloc_assert (listener);
         int rc = listener->set_address (address.c_str ());
         if (rc != 0) {
@@ -534,7 +588,7 @@ int zmq::socket_base_t::connect (const char *addr_)
         {
             //  If required, send the identity of the local socket to the peer.
             if (peer.options.recv_identity) {
-    
+
                 msg_t id;
                 rc = id.init_size (options.identity_size);
                 errno_assert (rc == 0);
@@ -590,6 +644,7 @@ int zmq::socket_base_t::connect (const char *addr_)
         errno = EMTHREAD;
         return -1;
     }
+    std::cout << "Connect: IO thread num " << io_thread << "\n";
 
     address_t *paddr = new (std::nothrow) address_t (protocol, address);
     alloc_assert (paddr);
@@ -599,6 +654,20 @@ int zmq::socket_base_t::connect (const char *addr_)
         // Defer resolution until a socket is opened
         paddr->resolved.tcp_addr = NULL;
     }
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+    else
+    if (protocol == "shm_ipc") {
+        paddr->resolved.shm_ipc_addr = new (std::nothrow) shm_ipc_address_t ();
+        alloc_assert (paddr->resolved.shm_ipc_addr);
+        rc = paddr->resolved.shm_ipc_addr->resolve (address.c_str ());
+        if (rc != 0) {
+            delete paddr;
+            return -1;
+        }
+
+        create_shm_mailbox ();
+    }
+#endif
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     else
     if (protocol == "ipc") {
@@ -648,7 +717,8 @@ int zmq::socket_base_t::connect (const char *addr_)
     bool subscribe_to_all = protocol == "pgm" || protocol == "epgm" || protocol == "norm";
     pipe_t *newpipe = NULL;
 
-    if (options.immediate != 1 || subscribe_to_all) {
+    if ((options.immediate != 1 || subscribe_to_all) &&
+            protocol != "shm_ipc" ) {
         //  Create a bi-directional pipe.
         object_t *parents [2] = {this, session};
         pipe_t *new_pipes [2] = {NULL, NULL};
@@ -666,17 +736,21 @@ int zmq::socket_base_t::connect (const char *addr_)
         rc = pipepair (parents, new_pipes, hwms, conflates);
         errno_assert (rc == 0);
 
+        std::cout<<"Attaching local end\n";
         //  Attach local end of the pipe to the socket object.
         attach_pipe (new_pipes [0], subscribe_to_all);
         newpipe = new_pipes [0];
 
+        std::cout<<"Attaching remote end\n";
         //  Attach remote end of the pipe to the session object later on.
         session->attach_pipe (new_pipes [1]);
+        std::cout<<"Finished all\n";
     }
 
     //  Save last endpoint URI
     paddr->to_string (last_endpoint);
 
+    std::cout<<"Sending plug command\n";
     add_endpoint (addr_, (own_t *) session, newpipe);
     return 0;
 }
@@ -685,7 +759,8 @@ void zmq::socket_base_t::add_endpoint (const char *addr_, own_t *endpoint_, pipe
 {
     //  Activate the session. Make it a child of this socket.
     launch_child (endpoint_);
-    endpoints.insert (endpoints_t::value_type (std::string (addr_), endpoint_pipe_t(endpoint_, pipe)));
+    endpoints.insert (endpoints_t::value_type (std::string (addr_),
+                endpoint_pipe_t(endpoint_, pipe)));
 }
 
 int zmq::socket_base_t::term_endpoint (const char *addr_)
@@ -726,7 +801,7 @@ int zmq::socket_base_t::term_endpoint (const char *addr_)
             errno = ENOENT;
             return -1;
         }
-    
+
         for (inprocs_t::iterator it = range.first; it != range.second; ++it)
             it->second->terminate(true);
         inprocs.erase (range.first, range.second);
@@ -776,13 +851,14 @@ int zmq::socket_base_t::send (msg_t *msg_, int flags_)
     if (flags_ & ZMQ_SNDMORE)
         msg_->set_flags (msg_t::more);
 
+    std::cout << "socket: Before send\n";
     //  Try to send the message.
     rc = xsend (msg_);
     if (rc == 0)
         return 0;
     if (unlikely (errno != EAGAIN))
         return -1;
-
+    std::cout << "socket: After send\n";
     //  In case of non-blocking send we'll simply propagate
     //  the error - including EAGAIN - up the stack.
     if (flags_ & ZMQ_DONTWAIT || options.sndtimeo == 0)
@@ -912,7 +988,7 @@ int zmq::socket_base_t::close ()
 {
     //  Mark the socket as dead
     tag = 0xdeadbeef;
-    
+
     //  Transfer the ownership of the socket from this application thread
     //  to the reaper thread which will take care of the rest of shutdown
     //  process.
@@ -1012,7 +1088,9 @@ void zmq::socket_base_t::process_stop ()
 
 void zmq::socket_base_t::process_bind (pipe_t *pipe_)
 {
+    std::cout << "process_bind: Iiiin\n";
     attach_pipe (pipe_);
+    std::cout << "process_bind: Ooout\n";
 }
 
 void zmq::socket_base_t::process_term (int linger_)
@@ -1157,7 +1235,7 @@ void zmq::socket_base_t::pipe_terminated (pipe_t *pipe_)
             inprocs.erase(it);
             break;
         }
-    }    
+    }
 
     //  Remove the pipe from the list of attached pipes and confirm its
     //  termination if we are already shutting down.
@@ -1171,7 +1249,7 @@ void zmq::socket_base_t::extract_flags (msg_t *msg_)
     //  Test whether IDENTITY flag is valid for this socket type.
     if (unlikely (msg_->flags () & msg_t::identity))
         zmq_assert (options.recv_identity);
-  
+
     //  Remove MORE flag.
     rcvmore = msg_->flags () & msg_t::more ? true : false;
 }

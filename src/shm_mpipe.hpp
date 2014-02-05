@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_MAILBOX_HPP_INCLUDED__
-#define __ZMQ_MAILBOX_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_MPIPE_HPP_INCLUDED__
+#define __ZMQ_SHM_MPIPE_HPP_INCLUDED__
 
 #include <stddef.h>
 
@@ -27,24 +27,29 @@
 #include "fd.hpp"
 #include "config.hpp"
 #include "command.hpp"
-#include "ypipe.hpp"
+#include "shm_ypipe.hpp"
 #include "mutex.hpp"
-#include "shm_mpipe.hpp"
+//#include "shm_utils.hpp"
 
 namespace zmq
 {
+    // The definition for shared memory command pipes
+    typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
 
-    class mailbox_t
+    // A function for creating cpipes in shared memory. While normally part of
+    // shm_mpipe, it is exported for mailboxes that simply need an shm_cpipe.
+    shm_cpipe_t *shm_create_cpipe ();
+
+    class shm_mpipe_t
     {
     public:
 
-        mailbox_t ();
-        ~mailbox_t ();
+        shm_mpipe_t ();
+        ~shm_mpipe_t ();
 
         fd_t get_fd ();
         void send (const command_t &cmd_);
         int recv (command_t *cmd_, int timeout_);
-        shm_cpipe_t *shm_cpipe;
 
 #ifdef HAVE_FORK
         // close the file descriptors in the signaller. This is used in a forked
@@ -56,13 +61,12 @@ namespace zmq
     private:
 
         //  The pipe to store actual commands.
-        typedef ypipe_t <command_t, command_pipe_granularity> cpipe_t;
-        cpipe_t cpipe;
+        shm_cpipe_t *shm_cpipe;
 
         //  Signaler to pass signals from writer thread to reader thread.
         signaler_t signaler;
 
-        //  There's only one thread receiving from the mailbox, but there
+        //  There's only one thread receiving from the shm_mpipe, but there
         //  is arbitrary number of threads sending. Given that ypipe requires
         //  synchronised access on both of its endpoints, we have to synchronise
         //  the sending side.
@@ -72,9 +76,9 @@ namespace zmq
         //  read commands from it.
         bool active;
 
-        //  Disable copying of mailbox_t object.
-        mailbox_t (const mailbox_t&);
-        const mailbox_t &operator = (const mailbox_t&);
+        //  Disable copying of shm_mpipe_t object.
+        shm_mpipe_t (const shm_mpipe_t&);
+        const shm_mpipe_t &operator = (const shm_mpipe_t&);
     };
 
 }

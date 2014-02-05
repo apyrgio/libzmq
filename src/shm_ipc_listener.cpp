@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "ipc_listener.hpp"
+#include "shm_ipc_listener.hpp"
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
@@ -25,8 +25,8 @@
 
 #include <string.h>
 
-#include "stream_engine.hpp"
-#include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
+#include "shm_ipc_connection.hpp"
 #include "io_thread.hpp"
 #include "session_base.hpp"
 #include "config.hpp"
@@ -48,8 +48,8 @@
 #   include <grp.h>
 #endif
 
-zmq::ipc_listener_t::ipc_listener_t (io_thread_t *io_thread_,
-      socket_base_t *socket_, const options_t &options_) :
+zmq::shm_ipc_listener_t::shm_ipc_listener_t(io_thread_t *io_thread_,
+		socket_base_t *socket_, const options_t &options_):
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
     has_file (false),
@@ -58,28 +58,47 @@ zmq::ipc_listener_t::ipc_listener_t (io_thread_t *io_thread_,
 {
 }
 
-zmq::ipc_listener_t::~ipc_listener_t ()
+zmq::shm_ipc_listener_t::~shm_ipc_listener_t ()
 {
     zmq_assert (s == retired_fd);
 }
 
-void zmq::ipc_listener_t::process_plug ()
+void zmq::shm_ipc_listener_t::process_plug ()
 {
+	std::cout<<"Listener: In process_plug\n";
     //  Start polling for incoming connections.
     handle = add_fd (s);
     set_pollin (handle);
 }
 
-void zmq::ipc_listener_t::process_term (int linger_)
+void zmq::shm_ipc_listener_t::process_term (int linger_)
 {
+	std::cout<<"In process_term\n";
     rm_fd (handle);
     close ();
     own_t::process_term (linger_);
 }
 
-void zmq::ipc_listener_t::in_event ()
+int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
 {
+    shm_ipc_connection_t *shm_conn = new (std::nothrow)
+			shm_ipc_connection_t (this, fd, socket, options);
+    alloc_assert (shm_conn);
+
+	// The shm connection will handle this socket from now on.
+	// FIXME: do we need to terminate the shm_ipc_connecter?
+	handle = add_fd (fd, shm_conn);
+	set_pollin (handle);
+
+	return 0;
+}
+
+void zmq::shm_ipc_listener_t::in_event ()
+{
+
+	std::cout<<"In in_event of listener\n";
     fd_t fd = accept ();
+	std::cout << "Accept (new fd: " << fd << ")\n";
 
     //  If connection was reset by the peer in the meantime, just ignore it.
     //  TODO: Handle specific errors like ENFILE/EMFILE etc.
@@ -88,6 +107,12 @@ void zmq::ipc_listener_t::in_event ()
         return;
     }
 
+	rm_fd (handle);
+
+	int r = create_connection (fd);
+	zmq_assert (r >= 0);
+
+#if 0
     //  Create the engine object for this connection.
     stream_engine_t *engine = new (std::nothrow)
         stream_engine_t (fd, options, endpoint);
@@ -106,9 +131,10 @@ void zmq::ipc_listener_t::in_event ()
     launch_child (session);
     send_attach (session, engine, false);
     socket->event_accepted (endpoint, fd);
+#endif
 }
 
-int zmq::ipc_listener_t::get_address (std::string &addr_)
+int zmq::shm_ipc_listener_t::get_address (std::string &addr_)
 {
     struct sockaddr_storage ss;
 #ifdef ZMQ_HAVE_HPUX
@@ -122,11 +148,11 @@ int zmq::ipc_listener_t::get_address (std::string &addr_)
         return rc;
     }
 
-    ipc_address_t addr ((struct sockaddr *) &ss, sl);
+    shm_ipc_address_t addr ((struct sockaddr *) &ss, sl);
     return addr.to_string (addr_);
 }
 
-int zmq::ipc_listener_t::set_address (const char *addr_)
+int zmq::shm_ipc_listener_t::set_address (const char *addr_)
 {
     //  Create addr on stack for auto-cleanup
     std::string addr (addr_);
@@ -147,13 +173,13 @@ int zmq::ipc_listener_t::set_address (const char *addr_)
     filename.clear ();
 
     //  Initialise the address structure.
-    ipc_address_t address;
+    shm_ipc_address_t address;
     int rc = address.resolve (addr.c_str());
     if (rc != 0)
         return -1;
 
     //  Create a listening socket.
-    s = open_socket (AF_UNIX, SOCK_STREAM, 0);
+    s = open_socket (AF_UNIX, SOCK_SEQPACKET, 0);
     if (s == -1)
         return -1;
 
@@ -173,7 +199,6 @@ int zmq::ipc_listener_t::set_address (const char *addr_)
         goto error;
 
     socket->event_listening (endpoint, s);
-	std::cout << "Listener: We can now accept requests\n";
     return 0;
 
 error:
@@ -183,7 +208,7 @@ error:
     return -1;
 }
 
-int zmq::ipc_listener_t::close ()
+int zmq::shm_ipc_listener_t::close ()
 {
     zmq_assert (s != retired_fd);
     int rc = ::close (s);
@@ -207,11 +232,11 @@ int zmq::ipc_listener_t::close ()
 
 #if defined ZMQ_HAVE_SO_PEERCRED
 
-bool zmq::ipc_listener_t::filter (fd_t sock)
+bool zmq::shm_ipc_listener_t::filter (fd_t sock)
 {
-    if (options.ipc_uid_accept_filters.empty () &&
-        options.ipc_pid_accept_filters.empty () &&
-        options.ipc_gid_accept_filters.empty ())
+    if (options.shm_ipc_uid_accept_filters.empty () &&
+        options.shm_ipc_pid_accept_filters.empty () &&
+        options.shm_ipc_gid_accept_filters.empty ())
         return true;
 
     struct ucred cred;
@@ -219,9 +244,9 @@ bool zmq::ipc_listener_t::filter (fd_t sock)
 
     if (getsockopt (sock, SOL_SOCKET, SO_PEERCRED, &cred, &size))
         return false;
-    if (options.ipc_uid_accept_filters.find (cred.uid) != options.ipc_uid_accept_filters.end () ||
-            options.ipc_gid_accept_filters.find (cred.gid) != options.ipc_gid_accept_filters.end () ||
-            options.ipc_pid_accept_filters.find (cred.pid) != options.ipc_pid_accept_filters.end ())
+    if (options.shm_ipc_uid_accept_filters.find (cred.uid) != options.shm_ipc_uid_accept_filters.end () ||
+            options.shm_ipc_gid_accept_filters.find (cred.gid) != options.shm_ipc_gid_accept_filters.end () ||
+            options.shm_ipc_pid_accept_filters.find (cred.pid) != options.shm_ipc_pid_accept_filters.end ())
         return true;
 
     struct passwd *pw;
@@ -229,8 +254,8 @@ bool zmq::ipc_listener_t::filter (fd_t sock)
 
     if (!(pw = getpwuid (cred.uid)))
         return false;
-    for (options_t::ipc_gid_accept_filters_t::const_iterator it = options.ipc_gid_accept_filters.begin ();
-            it != options.ipc_gid_accept_filters.end (); it++) {
+    for (options_t::shm_ipc_gid_accept_filters_t::const_iterator it = options.shm_ipc_gid_accept_filters.begin ();
+            it != options.shm_ipc_gid_accept_filters.end (); it++) {
         if (!(gr = getgrgid (*it)))
             continue;
         for (char **mem = gr->gr_mem; *mem; mem++) {
@@ -243,10 +268,10 @@ bool zmq::ipc_listener_t::filter (fd_t sock)
 
 #elif defined ZMQ_HAVE_LOCAL_PEERCRED
 
-bool zmq::ipc_listener_t::filter (fd_t sock)
+bool zmq::shm_ipc_listener_t::filter (fd_t sock)
 {
-    if (options.ipc_uid_accept_filters.empty () &&
-        options.ipc_gid_accept_filters.empty ())
+    if (options.shm_ipc_uid_accept_filters.empty () &&
+        options.shm_ipc_gid_accept_filters.empty ())
         return true;
 
     struct xucred cred;
@@ -256,10 +281,10 @@ bool zmq::ipc_listener_t::filter (fd_t sock)
         return false;
     if (cred.cr_version != XUCRED_VERSION)
         return false;
-    if (options.ipc_uid_accept_filters.find (cred.cr_uid) != options.ipc_uid_accept_filters.end ())
+    if (options.shm_ipc_uid_accept_filters.find (cred.cr_uid) != options.shm_ipc_uid_accept_filters.end ())
         return true;
     for (int i = 0; i < cred.cr_ngroups; i++) {
-        if (options.ipc_gid_accept_filters.find (cred.cr_groups[i]) != options.ipc_gid_accept_filters.end ())
+        if (options.shm_ipc_gid_accept_filters.find (cred.cr_groups[i]) != options.shm_ipc_gid_accept_filters.end ())
             return true;
     }
 
@@ -268,7 +293,7 @@ bool zmq::ipc_listener_t::filter (fd_t sock)
 
 #endif
 
-zmq::fd_t zmq::ipc_listener_t::accept ()
+zmq::fd_t zmq::shm_ipc_listener_t::accept ()
 {
     //  Accept one connection and deal with different failure modes.
     //  The situation where connection cannot be accepted due to insufficient
@@ -281,13 +306,6 @@ zmq::fd_t zmq::ipc_listener_t::accept ()
             errno == ENFILE);
         return retired_fd;
     }
-
-    //  Race condition can cause socket not to be closed (if fork happens
-    //  between accept and this point).
-#ifdef FD_CLOEXEC
-    int rc = fcntl (sock, F_SETFD, FD_CLOEXEC);
-    errno_assert (rc != -1);
-#endif
 
     // IPC accept() filters
 #if defined ZMQ_HAVE_SO_PEERCRED || defined ZMQ_HAVE_LOCAL_PEERCRED

@@ -39,6 +39,7 @@ namespace zmq
     public:
 
         signaler_t ();
+        signaler_t (int fd);
         ~signaler_t ();
 
         fd_t get_fd ();

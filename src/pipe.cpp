@@ -25,6 +25,9 @@
 
 #include "ypipe.hpp"
 #include "ypipe_conflate.hpp"
+#include "shm_ypipe.hpp"
+#include "shm_ipc_connection.hpp"
+#include "shm_ring.hpp"
 
 int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
     int hwms_ [2], bool conflate_ [2])
@@ -58,6 +61,50 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 
     pipes_ [0]->set_peer (pipes_ [1]);
     pipes_ [1]->set_peer (pipes_ [0]);
+
+    return 0;
+}
+
+//   Creates two pipe objects. These objects are connected by two ypipes,
+//   each to pass messages in one direction.
+//   Since we need a way to distinguish between calls to this function in
+//   order to create pipes and their mirror counterparts, we will introduce the
+//   concept of CONNECTER and LISTENER.
+int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
+    int hwms_ [2], bool conflate_, std::string path, shm_pipe_t pipe_type)
+{
+    typedef shm_ypipe_t <msg_t, message_pipe_granularity> shm_upipe_normal_t;
+
+    unsigned int offset_in = 0;
+    unsigned int offset_out = 0;
+    int temp;
+
+    if (pipe_type == SHM_PIPE_CONNECTER) {
+        offset_out = get_ypipe_size ();
+    } else if (pipe_type == SHM_PIPE_LISTENER) {
+        offset_in = get_ypipe_size ();
+        temp = hwms_[0];
+        hwms_[0] = hwms_[1];
+        hwms_[1] = temp;
+    } else {
+        zmq_assert(false);
+    }
+
+    pipe_t::upipe_t *shm_upipe_in;
+    shm_upipe_in = new (std::nothrow) shm_upipe_normal_t (path, offset_in);
+    alloc_assert (shm_upipe_in);
+    std::cout << "Pipe 1: " << shm_upipe_in << "\n";
+
+    pipe_t::upipe_t *shm_upipe_out;
+    shm_upipe_out = new (std::nothrow) shm_upipe_normal_t (path, offset_out);
+    alloc_assert (shm_upipe_out);
+    std::cout << "Pipe 2: " << shm_upipe_out << "\n";
+
+    *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe_in,
+            shm_upipe_out, hwms_ [1], hwms_ [0], conflate_);
+    alloc_assert (shm_pipe_);
+
+    (*shm_pipe_)->set_peer (NULL);
 
     return 0;
 }
@@ -98,8 +145,7 @@ void zmq::pipe_t::set_event_sink (i_pipe_events *sink_)
 {
     // Sink can be set once only.
     zmq_assert (!sink);
-    sink = sink_;
-}
+    sink = sink_; }
 
 void zmq::pipe_t::set_identity (const blob_t &identity_)
 {
@@ -229,6 +275,7 @@ void zmq::pipe_t::flush ()
 
     if (outpipe && !outpipe->flush ())
         send_activate_read (peer);
+    // We need a way to signal the remote mailbox here.
 }
 
 void zmq::pipe_t::process_activate_read ()
@@ -499,4 +546,14 @@ void zmq::pipe_t::set_hwms (int inhwm_, int outhwm_)
 {
     lwm = compute_lwm (inhwm_);
     hwm = outhwm_;
+}
+
+void zmq::pipe_t::mark_inactive_write ()
+{
+    outpipe->mark_inactive ();
+}
+
+void zmq::pipe_t::mark_inactive_read ()
+{
+    inpipe->mark_inactive ();
 }

@@ -1,4 +1,3 @@
-
 /*
     Copyright (c) 2007-2014 Contributors as noted in the AUTHORS file
 
@@ -18,29 +17,24 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_YPIPE_BASE_HPP_INCLUDED__
-#define __ZMQ_YPIPE_BASE_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_RING_HPP_INCLUDED__
+#define __ZMQ_SHM_RING_HPP_INCLUDED__
 
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+
+#include "options.hpp"
+#include "pipe.hpp"
 
 namespace zmq
 {
-    // ypipe_base abstracts ypipe and ypipe_conflate specific
-    // classes, one is selected according to a the conflate
-    // socket option
+    enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
+    unsigned int get_ring_size ();
 
-    template <typename T> class ypipe_base_t
-    {
-    public:
-        virtual ~ypipe_base_t () {}
-        virtual void write (const T &value_, bool incomplete_) = 0;
-        virtual bool unwrite (T *value_) = 0;
-        virtual bool flush () = 0;
-        virtual bool check_read () = 0;
-        virtual bool read (T *value_) = 0;
-        virtual bool probe (bool (*fn)(const T &)) = 0;
-		virtual void mark_inactive ();
-		virtual void mark_active ();
-    };
+    pipe_t *shm_create_ring (options_t *options, std::string ring_name,
+            shm_pipe_t pipe_type);
+    pipe_t *shm_alloc_pipe (options_t *options, std::string path,
+            shm_pipe_t pipe_type);
 }
 
+#endif
 #endif
