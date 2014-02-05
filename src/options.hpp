@@ -132,10 +132,17 @@ namespace zmq
         ipc_uid_accept_filters_t ipc_uid_accept_filters;
         typedef std::set <gid_t> ipc_gid_accept_filters_t;
         ipc_gid_accept_filters_t ipc_gid_accept_filters;
+        bool zap_shm_ipc_creds;
+        typedef std::set <uid_t> shm_ipc_uid_accept_filters_t;
+        shm_ipc_uid_accept_filters_t shm_ipc_uid_accept_filters;
+        typedef std::set <gid_t> shm_ipc_gid_accept_filters_t;
+        shm_ipc_gid_accept_filters_t shm_ipc_gid_accept_filters;
 #       endif
 #       if defined ZMQ_HAVE_SO_PEERCRED
         typedef std::set <pid_t> ipc_pid_accept_filters_t;
         ipc_pid_accept_filters_t ipc_pid_accept_filters;
+        typedef std::set <pid_t> shm_ipc_pid_accept_filters_t;
+        shm_ipc_pid_accept_filters_t shm_ipc_pid_accept_filters;
 #       endif
 
         //  Security mechanism for all connections on this socket

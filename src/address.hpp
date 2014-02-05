@@ -27,6 +27,7 @@ namespace zmq
     class tcp_address_t;
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     class ipc_address_t;
+    class shm_ipc_address_t;
 #endif
 #if defined ZMQ_HAVE_LINUX
     class tipc_address_t;
@@ -44,6 +45,7 @@ namespace zmq
             tcp_address_t *tcp_addr;
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
             ipc_address_t *ipc_addr;
+            shm_ipc_address_t *shm_ipc_addr;
 #endif
 #if defined ZMQ_HAVE_LINUX
             tipc_address_t *tipc_addr;

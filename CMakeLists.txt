@@ -309,6 +309,9 @@ set(cxx-sources
         ipc_address.cpp
         ipc_connecter.cpp
         ipc_listener.cpp
+        shm_ipc_address.cpp
+        shm_ipc_connecter.cpp
+        shm_ipc_listener.cpp
         kqueue.cpp
         lb.cpp
         mailbox.cpp
@@ -633,6 +636,7 @@ list(APPEND tests
         test_abstract_ipc
         test_proxy
         test_filter_ipc
+		test_shm_ipc
 )
 endif()
 

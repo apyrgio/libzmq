@@ -281,6 +281,29 @@ int zmq::options_t::setsockopt (int option_, const void *optval_,
                 return 0;
             }
             break;
+        case ZMQ_SHM_IPC_FILTER_UID:
+            if (optvallen_ == 0 && optval_ == NULL) {
+                shm_ipc_uid_accept_filters.clear ();
+                return 0;
+            }
+            else
+            if (optvallen_ == sizeof (uid_t) && optval_ != NULL) {
+                shm_ipc_uid_accept_filters.insert (*((uid_t *) optval_));
+                return 0;
+            }
+            break;
+
+        case ZMQ_SHM_IPC_FILTER_GID:
+            if (optvallen_ == 0 && optval_ == NULL) {
+                shm_ipc_gid_accept_filters.clear ();
+                return 0;
+            }
+            else
+            if (optvallen_ == sizeof (gid_t) && optval_ != NULL) {
+                shm_ipc_gid_accept_filters.insert (*((gid_t *) optval_));
+                return 0;
+            }
+            break;
 #       endif
 
 #       if defined ZMQ_HAVE_SO_PEERCRED
@@ -292,6 +315,17 @@ int zmq::options_t::setsockopt (int option_, const void *optval_,
             else
             if (optvallen_ == sizeof (pid_t) && optval_ != NULL) {
                 ipc_pid_accept_filters.insert (*((pid_t *) optval_));
+                return 0;
+            }
+            break;
+        case ZMQ_SHM_IPC_FILTER_PID:
+            if (optvallen_ == 0 && optval_ == NULL) {
+                shm_ipc_pid_accept_filters.clear ();
+                return 0;
+            }
+            else
+            if (optvallen_ == sizeof (pid_t) && optval_ != NULL) {
+                shm_ipc_pid_accept_filters.insert (*((pid_t *) optval_));
                 return 0;
             }
             break;

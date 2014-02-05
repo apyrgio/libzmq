@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
@@ -26,12 +26,12 @@
 #include <string>
 #include <sstream>
 
-zmq::ipc_address_t::ipc_address_t ()
+zmq::shm_ipc_address_t::shm_ipc_address_t ()
 {
     memset (&address, 0, sizeof (address));
 }
 
-zmq::ipc_address_t::ipc_address_t (const sockaddr *sa, socklen_t sa_len)
+zmq::shm_ipc_address_t::shm_ipc_address_t (const sockaddr *sa, socklen_t sa_len)
 {
     zmq_assert(sa && sa_len > 0);
 
@@ -41,11 +41,11 @@ zmq::ipc_address_t::ipc_address_t (const sockaddr *sa, socklen_t sa_len)
     }
 }
 
-zmq::ipc_address_t::~ipc_address_t ()
+zmq::shm_ipc_address_t::~shm_ipc_address_t ()
 {
 }
 
-int zmq::ipc_address_t::resolve (const char *path_)
+int zmq::shm_ipc_address_t::resolve (const char *path_)
 {
     if (strlen (path_) >= sizeof (address.sun_path)) {
         errno = ENAMETOOLONG;
@@ -68,7 +68,7 @@ int zmq::ipc_address_t::resolve (const char *path_)
     return 0;
 }
 
-int zmq::ipc_address_t::to_string (std::string &addr_)
+int zmq::shm_ipc_address_t::to_string (std::string &addr_)
 {
     if (address.sun_family != AF_UNIX) {
         addr_.clear ();
@@ -89,12 +89,12 @@ int zmq::ipc_address_t::to_string (std::string &addr_)
     return 0;
 }
 
-const sockaddr *zmq::ipc_address_t::addr () const
+const sockaddr *zmq::shm_ipc_address_t::addr () const
 {
     return (sockaddr*) &address;
 }
 
-socklen_t zmq::ipc_address_t::addrlen () const
+socklen_t zmq::shm_ipc_address_t::addrlen () const
 {
 #if defined ZMQ_HAVE_LINUX
     if (!address.sun_path[0] && address.sun_path[1])

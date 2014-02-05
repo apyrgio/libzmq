@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __IPC_CONNECTER_HPP_INCLUDED__
-#define __IPC_CONNECTER_HPP_INCLUDED__
+#ifndef __SHM_IPC_CONNECTER_HPP_INCLUDED__
+#define __SHM_IPC_CONNECTER_HPP_INCLUDED__
 
 #include "platform.hpp"
 
@@ -36,16 +36,16 @@ namespace zmq
     class session_base_t;
     struct address_t;
 
-    class ipc_connecter_t : public own_t, public io_object_t
+    class shm_ipc_connecter_t : public own_t, public io_object_t
     {
     public:
 
         //  If 'delayed_start' is true connecter first waits for a while,
         //  then starts connection process.
-        ipc_connecter_t (zmq::io_thread_t *io_thread_,
+        shm_ipc_connecter_t (zmq::io_thread_t *io_thread_,
             zmq::session_base_t *session_, const options_t &options_,
             const address_t *addr_, bool delayed_start_);
-        ~ipc_connecter_t ();
+        ~shm_ipc_connecter_t ();
 
     private:
 
@@ -115,8 +115,8 @@ namespace zmq
         // Socket
         zmq::socket_base_t *socket;
 
-        ipc_connecter_t (const ipc_connecter_t&);
-        const ipc_connecter_t &operator = (const ipc_connecter_t&);
+        shm_ipc_connecter_t (const shm_ipc_connecter_t&);
+        const shm_ipc_connecter_t &operator = (const shm_ipc_connecter_t&);
     };
 
 }

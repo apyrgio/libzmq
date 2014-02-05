@@ -20,6 +20,7 @@
 #include <new>
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 #include "platform.hpp"
 
@@ -39,6 +40,7 @@
 #include "socket_base.hpp"
 #include "tcp_listener.hpp"
 #include "ipc_listener.hpp"
+#include "shm_ipc_listener.hpp"
 #include "tipc_listener.hpp"
 #include "tcp_connecter.hpp"
 #include "io_thread.hpp"
@@ -52,6 +54,7 @@
 #include "msg.hpp"
 #include "address.hpp"
 #include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
 #include "tcp_address.hpp"
 #include "tipc_address.hpp"
 #ifdef ZMQ_HAVE_OPENPGM
@@ -177,7 +180,7 @@ int zmq::socket_base_t::parse_uri (const char *uri_,
     }
     protocol_ = uri.substr (0, pos);
     address_ = uri.substr (pos + 3);
-    
+
     if (protocol_.empty () || address_.empty ()) {
         errno = EINVAL;
         return -1;
@@ -189,7 +192,8 @@ int zmq::socket_base_t::check_protocol (const std::string &protocol_)
 {
     //  First check out whether the protcol is something we are aware of.
     if (protocol_ != "inproc" && protocol_ != "ipc" && protocol_ != "tcp" &&
-          protocol_ != "pgm" && protocol_ != "epgm" && protocol_ != "tipc") {
+          protocol_ != "pgm" && protocol_ != "epgm" && protocol_ != "tipc" &&
+		  protocol_ != "shm_ipc") {
         errno = EPROTONOSUPPORT;
         return -1;
     }
@@ -206,6 +210,11 @@ int zmq::socket_base_t::check_protocol (const std::string &protocol_)
     //  IPC transport is not available on Windows and OpenVMS.
 #if defined ZMQ_HAVE_WINDOWS || defined ZMQ_HAVE_OPENVMS
     if (protocol_ == "ipc") {
+        //  Unknown protocol.
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+    if (protocol_ == "shm_ipc") {
         //  Unknown protocol.
         errno = EPROTONOSUPPORT;
         return -1;
@@ -344,6 +353,7 @@ int zmq::socket_base_t::bind (const char *addr_)
     std::string protocol;
     std::string address;
     rc = parse_uri (addr_, protocol, address);
+	std::cout<<"Protocol is "<<protocol<<", address is "<<address<<"\n";
     if (rc != 0)
         return -1;
 
@@ -367,7 +377,7 @@ int zmq::socket_base_t::bind (const char *addr_)
         return connect (addr_);
     }
 
-    //  Remaining trasnports require to be run in an I/O thread, so at this
+    //  Remaining transports require to be run in an I/O thread, so at this
     //  point we'll choose one.
     io_thread_t *io_thread = choose_io_thread (options.affinity);
     if (!io_thread) {
@@ -392,6 +402,27 @@ int zmq::socket_base_t::bind (const char *addr_)
         add_endpoint (addr_, (own_t *) listener, NULL);
         return 0;
     }
+
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+	if (protocol == "shm_ipc") {
+		std::cout<<"Now what fucker?\n";
+        shm_ipc_listener_t *listener = new (std::nothrow) shm_ipc_listener_t (
+            io_thread, this, options);
+        alloc_assert (listener);
+        int rc = listener->set_address (address.c_str ());
+        if (rc != 0) {
+            delete listener;
+            event_bind_failed (address, zmq_errno());
+            return -1;
+        }
+
+        // Save last endpoint URI
+        listener->get_address (last_endpoint);
+
+        add_endpoint (addr_, (own_t *) listener, NULL);
+        return 0;
+	}
+#endif
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     if (protocol == "ipc") {
@@ -593,6 +624,19 @@ int zmq::socket_base_t::connect (const char *addr_)
         }
     }
 #endif
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+    else
+    if (protocol == "shm_ipc") {
+        paddr->resolved.shm_ipc_addr = new (std::nothrow) shm_ipc_address_t ();
+        alloc_assert (paddr->resolved.shm_ipc_addr);
+        int rc = paddr->resolved.shm_ipc_addr->resolve (address.c_str ());
+        if (rc != 0) {
+            delete paddr;
+            return -1;
+        }
+    }
+#endif
+
 #ifdef ZMQ_HAVE_OPENPGM
     if (protocol == "pgm" || protocol == "epgm") {
         struct pgm_addrinfo_t *res = NULL;

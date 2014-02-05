@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_IPC_ADDRESS_HPP_INCLUDED__
-#define __ZMQ_IPC_ADDRESS_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
+#define __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
 
 #include <string>
 
@@ -32,13 +32,13 @@
 namespace zmq
 {
 
-    class ipc_address_t
+    class shm_ipc_address_t
     {
     public:
 
-        ipc_address_t ();
-        ipc_address_t (const sockaddr *sa, socklen_t sa_len);
-        ~ipc_address_t ();
+        shm_ipc_address_t ();
+        shm_ipc_address_t (const sockaddr *sa, socklen_t sa_len);
+        ~shm_ipc_address_t ();
 
         //  This function sets up the address for UNIX domain transport.
         int resolve (const char* path_);
@@ -53,8 +53,8 @@ namespace zmq
 
         struct sockaddr_un address;
 
-        ipc_address_t (const ipc_address_t&);
-        const ipc_address_t &operator = (const ipc_address_t&);
+        shm_ipc_address_t (const shm_ipc_address_t&);
+        const shm_ipc_address_t &operator = (const shm_ipc_address_t&);
     };
     
 }

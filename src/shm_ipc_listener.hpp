@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_IPC_LISTENER_HPP_INCLUDED__
-#define __ZMQ_IPC_LISTENER_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_IPC_LISTENER_HPP_INCLUDED__
+#define __ZMQ_SHM_IPC_LISTENER_HPP_INCLUDED__
 
 #include "platform.hpp"
 
@@ -37,13 +37,13 @@ namespace zmq
     class io_thread_t;
     class socket_base_t;
 
-    class ipc_listener_t : public own_t, public io_object_t
+    class shm_ipc_listener_t : public own_t, public io_object_t
     {
     public:
 
-        ipc_listener_t (zmq::io_thread_t *io_thread_,
+        shm_ipc_listener_t (zmq::io_thread_t *io_thread_,
             zmq::socket_base_t *socket_, const options_t &options_);
-        ~ipc_listener_t ();
+        ~shm_ipc_listener_t ();
 
         //  Set address to listen on.
         int set_address (const char *addr_);
@@ -92,8 +92,8 @@ namespace zmq
        // String representation of endpoint to bind to
         std::string endpoint;
 
-        ipc_listener_t (const ipc_listener_t&);
-        const ipc_listener_t &operator = (const ipc_listener_t&);
+        shm_ipc_listener_t (const shm_ipc_listener_t&);
+        const shm_ipc_listener_t &operator = (const shm_ipc_listener_t&);
     };
 
 }

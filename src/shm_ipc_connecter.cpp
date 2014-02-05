@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "ipc_connecter.hpp"
+#include "shm_ipc_connecter.hpp"
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
@@ -31,7 +31,7 @@
 #include "err.hpp"
 #include "ip.hpp"
 #include "address.hpp"
-#include "ipc_address.hpp"
+#include "shm_ipc_address.hpp"
 #include "session_base.hpp"
 
 #include <unistd.h>
@@ -39,7 +39,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-zmq::ipc_connecter_t::ipc_connecter_t (class io_thread_t *io_thread_,
+zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
       class session_base_t *session_, const options_t &options_,
       const address_t *addr_, bool delayed_start_) :
     own_t (io_thread_, options_),
@@ -58,14 +58,14 @@ zmq::ipc_connecter_t::ipc_connecter_t (class io_thread_t *io_thread_,
     socket = session-> get_socket();
 }
 
-zmq::ipc_connecter_t::~ipc_connecter_t ()
+zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()
 {
     zmq_assert (!timer_started);
     zmq_assert (!handle_valid);
     zmq_assert (s == retired_fd);
 }
 
-void zmq::ipc_connecter_t::process_plug ()
+void zmq::shm_ipc_connecter_t::process_plug ()
 {
     if (delayed_start)
         add_reconnect_timer ();
@@ -73,7 +73,7 @@ void zmq::ipc_connecter_t::process_plug ()
         start_connecting ();
 }
 
-void zmq::ipc_connecter_t::process_term (int linger_)
+void zmq::shm_ipc_connecter_t::process_term (int linger_)
 {
     if (timer_started) {
         cancel_timer (reconnect_timer_id);
@@ -91,7 +91,7 @@ void zmq::ipc_connecter_t::process_term (int linger_)
     own_t::process_term (linger_);
 }
 
-void zmq::ipc_connecter_t::in_event ()
+void zmq::shm_ipc_connecter_t::in_event ()
 {
     //  We are not polling for incomming data, so we are actually called
     //  because of error here. However, we can get error on out event as well
@@ -99,7 +99,7 @@ void zmq::ipc_connecter_t::in_event ()
     out_event ();
 }
 
-void zmq::ipc_connecter_t::out_event ()
+void zmq::shm_ipc_connecter_t::out_event ()
 {
     fd_t fd = connect ();
     rm_fd (handle);
@@ -125,14 +125,14 @@ void zmq::ipc_connecter_t::out_event ()
     socket->event_connected (endpoint, fd);
 }
 
-void zmq::ipc_connecter_t::timer_event (int id_)
+void zmq::shm_ipc_connecter_t::timer_event (int id_)
 {
     zmq_assert (id_ == reconnect_timer_id);
     timer_started = false;
     start_connecting ();
 }
 
-void zmq::ipc_connecter_t::start_connecting ()
+void zmq::shm_ipc_connecter_t::start_connecting ()
 {
     //  Open the connecting socket.
     int rc = open ();
@@ -161,7 +161,7 @@ void zmq::ipc_connecter_t::start_connecting ()
     }
 }
 
-void zmq::ipc_connecter_t::add_reconnect_timer()
+void zmq::shm_ipc_connecter_t::add_reconnect_timer()
 {
     int rc_ivl = get_new_reconnect_ivl();
     add_timer (rc_ivl, reconnect_timer_id);
@@ -169,7 +169,7 @@ void zmq::ipc_connecter_t::add_reconnect_timer()
     timer_started = true;
 }
 
-int zmq::ipc_connecter_t::get_new_reconnect_ivl ()
+int zmq::shm_ipc_connecter_t::get_new_reconnect_ivl ()
 {
     //  The new interval is the current interval + random value.
     int this_interval = current_reconnect_ivl +
@@ -189,7 +189,7 @@ int zmq::ipc_connecter_t::get_new_reconnect_ivl ()
     return this_interval;
 }
 
-int zmq::ipc_connecter_t::open ()
+int zmq::shm_ipc_connecter_t::open ()
 {
     zmq_assert (s == retired_fd);
 
@@ -203,8 +203,8 @@ int zmq::ipc_connecter_t::open ()
 
     //  Connect to the remote peer.
     int rc = ::connect (
-        s, addr->resolved.ipc_addr->addr (),
-        addr->resolved.ipc_addr->addrlen ());
+        s, addr->resolved.shm_ipc_addr->addr (),
+        addr->resolved.shm_ipc_addr->addrlen ());
 
     //  Connect was successfull immediately.
     if (rc == 0)
@@ -221,7 +221,7 @@ int zmq::ipc_connecter_t::open ()
     return -1;
 }
 
-int zmq::ipc_connecter_t::close ()
+int zmq::shm_ipc_connecter_t::close ()
 {
     zmq_assert (s != retired_fd);
     int rc = ::close (s);
@@ -231,7 +231,7 @@ int zmq::ipc_connecter_t::close ()
     return 0;
 }
 
-zmq::fd_t zmq::ipc_connecter_t::connect ()
+zmq::fd_t zmq::shm_ipc_connecter_t::connect ()
 {
     //  Following code should handle both Berkeley-derived socket
     //  implementations and Solaris.
