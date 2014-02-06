@@ -19,6 +19,7 @@
 
 #include "mailbox.hpp"
 #include "err.hpp"
+#include <iostream>
 
 zmq::mailbox_t::mailbox_t ()
 {
@@ -57,6 +58,7 @@ void zmq::mailbox_t::send (const command_t &cmd_)
 
 int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
 {
+
     //  Try to get the command straight away.
     if (active) {
         bool ok = cpipe.read (cmd_);

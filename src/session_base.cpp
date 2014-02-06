@@ -24,10 +24,12 @@
 #include "likely.hpp"
 #include "tcp_connecter.hpp"
 #include "ipc_connecter.hpp"
+#include "shm_ipc_connecter.hpp"
 #include "tipc_connecter.hpp"
 #include "pgm_sender.hpp"
 #include "pgm_receiver.hpp"
 #include "address.hpp"
+#include <iostream>
 
 #include "ctx.hpp"
 #include "req.hpp"
@@ -36,7 +38,6 @@ zmq::session_base_t *zmq::session_base_t::create (class io_thread_t *io_thread_,
     bool active_, class socket_base_t *socket_, const options_t &options_,
     const address_t *addr_)
 {
-	
     session_base_t *s = NULL;
     switch (options_.type) {
     case ZMQ_REQ:
@@ -488,6 +489,16 @@ void zmq::session_base_t::start_connecting (bool wait_)
         return;
     }
 
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+    if (addr->protocol == "shm_ipc") {
+		std::cout<<"In start_connecting of session base\n";
+        shm_ipc_connecter_t *connecter = new (std::nothrow)
+			shm_ipc_connecter_t (io_thread, this, options, addr, wait_);
+        alloc_assert (connecter);
+        launch_child (connecter);
+        return;
+    }
+#endif
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     if (addr->protocol == "ipc") {
         ipc_connecter_t *connecter = new (std::nothrow) ipc_connecter_t (

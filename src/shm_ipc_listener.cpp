@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <sys/un.h>
+#include <iostream>
 
 #if defined ZMQ_HAVE_SO_PEERCRED || defined ZMQ_HAVE_LOCAL_PEERCRED
 #   include <sys/types.h>
@@ -47,8 +48,8 @@
 #   include <grp.h>
 #endif
 
-zmq::shm_ipc_listener_t::shm_ipc_listener_t (io_thread_t *io_thread_,
-      socket_base_t *socket_, const options_t &options_) :
+zmq::shm_ipc_listener_t::shm_ipc_listener_t(io_thread_t *io_thread_,
+		socket_base_t *socket_, const options_t &options_):
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
     has_file (false),
@@ -64,6 +65,7 @@ zmq::shm_ipc_listener_t::~shm_ipc_listener_t ()
 
 void zmq::shm_ipc_listener_t::process_plug ()
 {
+	std::cout<<"In process_plug of listener\n";
     //  Start polling for incoming connections.
     handle = add_fd (s);
     set_pollin (handle);
@@ -71,6 +73,7 @@ void zmq::shm_ipc_listener_t::process_plug ()
 
 void zmq::shm_ipc_listener_t::process_term (int linger_)
 {
+	std::cout<<"In process_term\n";
     rm_fd (handle);
     close ();
     own_t::process_term (linger_);
@@ -78,6 +81,8 @@ void zmq::shm_ipc_listener_t::process_term (int linger_)
 
 void zmq::shm_ipc_listener_t::in_event ()
 {
+
+	std::cout<<"In in_event\n";
     fd_t fd = accept ();
 
     //  If connection was reset by the peer in the meantime, just ignore it.

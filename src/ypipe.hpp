@@ -24,6 +24,7 @@
 #include "yqueue.hpp"
 #include "platform.hpp"
 #include "ypipe_base.hpp"
+#include <iostream>
 
 namespace zmq
 {

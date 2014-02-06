@@ -38,13 +38,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <iostream>
 
 zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
       class session_base_t *session_, const options_t &options_,
       const address_t *addr_, bool delayed_start_) :
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
-    addr (addr_),
+	addr (addr_),
     s (retired_fd),
     handle_valid (false),
     delayed_start (delayed_start_),
@@ -53,7 +54,7 @@ zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
     current_reconnect_ivl(options.reconnect_ivl)
 {
     zmq_assert (addr);
-    zmq_assert (addr->protocol == "ipc");
+    zmq_assert (addr->protocol == "shm_ipc");
     addr->to_string (endpoint);
     socket = session-> get_socket();
 }
@@ -67,6 +68,7 @@ zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()
 
 void zmq::shm_ipc_connecter_t::process_plug ()
 {
+	cout<<"In process plug of connecter\n";
     if (delayed_start)
         add_reconnect_timer ();
     else
@@ -134,8 +136,9 @@ void zmq::shm_ipc_connecter_t::timer_event (int id_)
 
 void zmq::shm_ipc_connecter_t::start_connecting ()
 {
+	int rc = create_ipc_connection(socket, 
     //  Open the connecting socket.
-    int rc = open ();
+    rc = open ();
 
     //  Connect may succeed in synchronous manner.
     if (rc == 0) {
@@ -194,7 +197,7 @@ int zmq::shm_ipc_connecter_t::open ()
     zmq_assert (s == retired_fd);
 
     //  Create the socket.
-    s = open_socket (AF_UNIX, SOCK_STREAM, 0);
+    s = open_socket (AF_UNIX, SOCK_SEQPACKET, 0);
     if (s == -1)
         return -1;
 
@@ -202,14 +205,13 @@ int zmq::shm_ipc_connecter_t::open ()
     unblock_socket (s);
 
     //  Connect to the remote peer.
-    int rc = ::connect (
-        s, addr->resolved.shm_ipc_addr->addr (),
+    int rc = ::connect (s, addr->resolved.shm_ipc_addr->addr (),
         addr->resolved.shm_ipc_addr->addrlen ());
 
     //  Connect was successfull immediately.
     if (rc == 0)
         return 0;
-        
+
     //  Translate other error codes indicating asynchronous connect has been
     //  launched to a uniform EINPROGRESS.
     if (rc == -1 && errno == EINTR) {

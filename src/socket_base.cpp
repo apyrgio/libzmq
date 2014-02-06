@@ -404,10 +404,9 @@ int zmq::socket_base_t::bind (const char *addr_)
     }
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
-	if (protocol == "shm_ipc") {
-		std::cout<<"Now what fucker?\n";
-        shm_ipc_listener_t *listener = new (std::nothrow) shm_ipc_listener_t (
-            io_thread, this, options);
+    if (protocol == "shm_ipc") {
+        shm_ipc_listener_t *listener = new (std::nothrow)
+			shm_ipc_listener_t (io_thread, this, options);
         alloc_assert (listener);
         int rc = listener->set_address (address.c_str ());
         if (rc != 0) {
@@ -421,13 +420,13 @@ int zmq::socket_base_t::bind (const char *addr_)
 
         add_endpoint (addr_, (own_t *) listener, NULL);
         return 0;
-	}
+    }
 #endif
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     if (protocol == "ipc") {
         ipc_listener_t *listener = new (std::nothrow) ipc_listener_t (
-            io_thread, this, options);
+				io_thread, this, options);
         alloc_assert (listener);
         int rc = listener->set_address (address.c_str ());
         if (rc != 0) {
@@ -483,8 +482,8 @@ int zmq::socket_base_t::connect (const char *addr_)
     std::string protocol;
     std::string address;
     rc = parse_uri (addr_, protocol, address);
-    if (rc != 0)
-        return -1;
+	if (rc != 0)
+		return -1;
 
     rc = check_protocol (protocol);
     if (rc != 0)
@@ -534,7 +533,8 @@ int zmq::socket_base_t::connect (const char *addr_)
         if (!peer.socket)
         {
             endpoint_t endpoint = {this, options};
-            pending_connection_t pending_connection = {endpoint, new_pipes [0], new_pipes [1]};
+            pending_connection_t pending_connection = {
+				endpoint, new_pipes [0], new_pipes [1]};
             pend_connection (addr_, pending_connection);
         }
         else
@@ -613,6 +613,18 @@ int zmq::socket_base_t::connect (const char *addr_)
         }
     }
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+	else
+    if (protocol == "shm_ipc") {
+        paddr->resolved.shm_ipc_addr = new (std::nothrow) shm_ipc_address_t ();
+        alloc_assert (paddr->resolved.shm_ipc_addr);
+        int rc = paddr->resolved.shm_ipc_addr->resolve (address.c_str ());
+        if (rc != 0) {
+            delete paddr;
+            return -1;
+        }
+    }
+#endif
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     else
     if (protocol == "ipc") {
         paddr->resolved.ipc_addr = new (std::nothrow) ipc_address_t ();
@@ -624,19 +636,6 @@ int zmq::socket_base_t::connect (const char *addr_)
         }
     }
 #endif
-#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
-    else
-    if (protocol == "shm_ipc") {
-        paddr->resolved.shm_ipc_addr = new (std::nothrow) shm_ipc_address_t ();
-        alloc_assert (paddr->resolved.shm_ipc_addr);
-        int rc = paddr->resolved.shm_ipc_addr->resolve (address.c_str ());
-        if (rc != 0) {
-            delete paddr;
-            return -1;
-        }
-    }
-#endif
-
 #ifdef ZMQ_HAVE_OPENPGM
     if (protocol == "pgm" || protocol == "epgm") {
         struct pgm_addrinfo_t *res = NULL;
@@ -689,17 +688,21 @@ int zmq::socket_base_t::connect (const char *addr_)
         rc = pipepair (parents, new_pipes, hwms, conflates);
         errno_assert (rc == 0);
 
+		std::cout<<"Attaching local end\n";
         //  Attach local end of the pipe to the socket object.
         attach_pipe (new_pipes [0], subscribe_to_all);
         newpipe = new_pipes [0];
 
+		std::cout<<"Attaching remote end\n";
         //  Attach remote end of the pipe to the session object later on.
         session->attach_pipe (new_pipes [1]);
+		std::cout<<"Finished all\n";
     }
 
     //  Save last endpoint URI
     paddr->to_string (last_endpoint);
 
+	std::cout<<"Sending plug command\n";
     add_endpoint (addr_, (own_t *) session, newpipe);
     return 0;
 }
@@ -708,7 +711,8 @@ void zmq::socket_base_t::add_endpoint (const char *addr_, own_t *endpoint_, pipe
 {
     //  Activate the session. Make it a child of this socket.
     launch_child (endpoint_);
-    endpoints.insert (endpoints_t::value_type (std::string (addr_), endpoint_pipe_t(endpoint_, pipe)));
+	endpoints.insert (endpoints_t::value_type (std::string (addr_),
+				endpoint_pipe_t(endpoint_, pipe)));
 }
 
 int zmq::socket_base_t::term_endpoint (const char *addr_)

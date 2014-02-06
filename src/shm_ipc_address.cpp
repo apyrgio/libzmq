@@ -77,9 +77,9 @@ int zmq::shm_ipc_address_t::to_string (std::string &addr_)
 
     std::stringstream s;
 #if !defined ZMQ_HAVE_LINUX
-    s << "ipc://" << address.sun_path;
+    s << "shm_ipc://" << address.sun_path;
 #else
-    s << "ipc://";
+    s << "shm_ipc://";
     if (!address.sun_path[0] && address.sun_path[1])
        s << "@" << address.sun_path + 1;
     else

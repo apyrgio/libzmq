@@ -55,6 +55,8 @@
 #endif
 #endif
 
+#include <iostream>
+
 #include "signaler.hpp"
 #include "likely.hpp"
 #include "stdint.hpp"

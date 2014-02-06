@@ -50,7 +50,7 @@ int main (void)
     void *sc = zmq_socket (ctx, ZMQ_DEALER);
     assert (sc);
 
-	std::cout<<"Craeting sockets\n";
+	std::cout<<"Connecting client socket to server socket\n";
     rc = zmq_connect (sc, "shm_ipc://@/tmp/tester");
     assert (rc == 0);
 
