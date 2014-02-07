@@ -106,6 +106,7 @@ void zmq::shm_ipc_connecter_t::in_event ()
 
 void zmq::shm_ipc_connecter_t::out_event ()
 {
+	std::cout << "Are we fucking nuts\n";
     fd_t fd = connect ();
     rm_fd (handle);
     handle_valid = false;
@@ -144,14 +145,17 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
 
     //  Open the connecting socket.
     int rc = open ();
+	std::cout << "open() = " << rc << "\n";
 
     //  Connect may succeed in synchronous manner.
     if (rc == 0) {
-#if 0
+		std::cout << "Reasonable I guess\n";
         handle = add_fd (s);
         handle_valid = true;
+#if 0
         out_event ();
 #endif
+		connect_syn();
     }
 
     //  Connection establishment may be delayed. Poll for its completion.
@@ -187,7 +191,7 @@ int zmq::shm_ipc_connecter_t::get_new_reconnect_ivl ()
 
     //  Only change the current reconnect interval  if the maximum reconnect
     //  interval was set and if it's larger than the reconnect interval.
-    if (options.reconnect_ivl_max > 0 && 
+    if (options.reconnect_ivl_max > 0 &&
         options.reconnect_ivl_max > options.reconnect_ivl) {
 
         //  Calculate the next interval
@@ -208,6 +212,7 @@ int zmq::shm_ipc_connecter_t::open ()
     if (s == -1)
         return -1;
 
+	std::cout << "Love " << s << "\n";
     //  Set the non-blocking flag.
     unblock_socket (s);
 
@@ -215,6 +220,7 @@ int zmq::shm_ipc_connecter_t::open ()
     int rc = ::connect (s, addr->resolved.shm_ipc_addr->addr (),
         addr->resolved.shm_ipc_addr->addrlen ());
 
+	std::cout << "Kisses: " << rc << strerror(errno) << "\n";
     //  Connect was successfull immediately.
     if (rc == 0)
         return 0;
