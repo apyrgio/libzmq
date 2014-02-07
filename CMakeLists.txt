@@ -312,6 +312,8 @@ set(cxx-sources
         shm_ipc_address.cpp
         shm_ipc_connecter.cpp
         shm_ipc_listener.cpp
+        shm_ipc_connection.cpp
+        shm_ipc_ring.cpp
         kqueue.cpp
         lb.cpp
         mailbox.cpp

@@ -38,6 +38,8 @@ libzmq_la_SOURCES = \
     shm_ipc_address.hpp \
     shm_ipc_connecter.hpp \
     shm_ipc_listener.hpp \
+    shm_ipc_connection.hpp \
+    shm_ipc_ring.hpp \
     i_engine.hpp \
     i_poll_events.hpp \
     kqueue.hpp \
@@ -112,6 +114,8 @@ libzmq_la_SOURCES = \
     shm_ipc_address.cpp \
     shm_ipc_connecter.cpp \
     shm_ipc_listener.cpp \
+    shm_ipc_connection.cpp \
+    shm_ipc_ring.cpp \
     kqueue.cpp \
     lb.cpp \
     mailbox.cpp \

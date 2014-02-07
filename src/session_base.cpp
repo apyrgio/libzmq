@@ -25,6 +25,8 @@
 #include "tcp_connecter.hpp"
 #include "ipc_connecter.hpp"
 #include "shm_ipc_connecter.hpp"
+#include "shm_ipc_connection.hpp"
+#include "shm_ipc_ring.hpp"
 #include "tipc_connecter.hpp"
 #include "pgm_sender.hpp"
 #include "pgm_receiver.hpp"

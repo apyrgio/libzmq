@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
-#define __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_IPC_CONNECTION_HPP_INCLUDED__
+#define __ZMQ_SHM_IPC_CONNECTION_HPP_INCLUDED__
 
 #include <string>
 
@@ -36,8 +36,7 @@ namespace zmq
 	{
 		public:
 
-			shm_ipc_connection_t (socket_base_t *socket_,
-					const char *ring_name_);
+			shm_ipc_connection_t (class socket_base_t *socket_);
 			~shm_ipc_connection_t ();
 
 			/* The file descriptor of the remote end */
@@ -46,13 +45,32 @@ namespace zmq
 			/* Our local file descriptor */
 			fd_t local_evfd;
 
+			/* Reserved for the shared memory stuff */
+
+		protected:
+			// Part of create_connection
+			int alloc_conn();
+			int init_conn();
+			int map_conn();
+
+			/* Entry function for creating a connection */
+			int create_connection();
+
+			/* Syn phase */
+			int connect_syn ();
+
+			/* ACK phase */
+			int connect_ack ();
+
+		private:
+
 			/* The socket that is involved in the connection */
 			socket_base_t *socket;
 
-		private:
 			/* The socket type, CONNECTER or LISTENER */
 			enum sock_type {CONNECTER, LISTENER};
-	}
+
+	};
 }
 
 #endif

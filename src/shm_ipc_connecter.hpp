@@ -28,6 +28,8 @@
 #include "own.hpp"
 #include "stdint.hpp"
 #include "io_object.hpp"
+#include "shm_ipc_connection.hpp"
+#include "shm_ipc_ring.hpp"
 
 namespace zmq
 {
@@ -36,7 +38,10 @@ namespace zmq
     class session_base_t;
     struct address_t;
 
-    class shm_ipc_connecter_t : public own_t, public io_object_t
+    class shm_ipc_connecter_t :
+		public own_t,
+		public io_object_t,
+		public shm_ipc_connection_t
     {
     public:
 
@@ -60,6 +65,10 @@ namespace zmq
         void in_event ();
         void out_event ();
         void timer_event (int id_);
+
+		// Handshaking functions
+		int connect_syn();
+		int connect_ack();
 
         //  Internal function to start the actual connection establishment.
         void start_connecting ();
@@ -114,6 +123,9 @@ namespace zmq
 
         // Socket
         zmq::socket_base_t *socket;
+
+		// The associated connection for the connecter
+		zmq::shm_ipc_connection_t *shm_connection;
 
         shm_ipc_connecter_t (const shm_ipc_connecter_t&);
         const shm_ipc_connecter_t &operator = (const shm_ipc_connecter_t&);

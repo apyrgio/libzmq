@@ -17,8 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
-#define __ZMQ_SHM_IPC_ADDRESS_HPP_INCLUDED__
+#ifndef __ZMQ_SHM_IPC_RING_HPP_INCLUDED__
+#define __ZMQ_SHM_IPC_RING_HPP_INCLUDED__
 
 #include <string>
 
@@ -35,16 +35,21 @@ namespace zmq
 	{
 		public:
 
-			shm_ipc_ring_t (const char *ring_name_);
+			shm_ipc_ring_t (class socket_base_t *socket_);
 			~shm_ipc_ring_t ();
 
+		private:
+
 			/* Name of the ring */
-			const char ring_name[100];
+			//const char ring_name[100];
 
 			/* Pointers to shared part */
 
 			/* Shared part */
-	}
+
+			/* The socket that is involved in the connection */
+			socket_base_t *socket;
+	};
 }
 
 #endif

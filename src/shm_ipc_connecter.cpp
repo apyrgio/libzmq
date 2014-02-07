@@ -32,6 +32,8 @@
 #include "ip.hpp"
 #include "address.hpp"
 #include "shm_ipc_address.hpp"
+#include "shm_ipc_connection.hpp"
+#include "shm_ipc_ring.hpp"
 #include "session_base.hpp"
 
 #include <unistd.h>
@@ -45,6 +47,7 @@ zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
       const address_t *addr_, bool delayed_start_) :
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
+	shm_ipc_connection_t(session_->get_socket()),
 	addr (addr_),
     s (retired_fd),
     handle_valid (false),
@@ -68,7 +71,7 @@ zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()
 
 void zmq::shm_ipc_connecter_t::process_plug ()
 {
-	cout<<"In process plug of connecter\n";
+	std::cout<<"In process plug of connecter\n";
     if (delayed_start)
         add_reconnect_timer ();
     else
@@ -136,15 +139,19 @@ void zmq::shm_ipc_connecter_t::timer_event (int id_)
 
 void zmq::shm_ipc_connecter_t::start_connecting ()
 {
-	int rc = create_ipc_connection(socket, 
+	// Create shm_connection
+	create_connection();
+
     //  Open the connecting socket.
-    rc = open ();
+    int rc = open ();
 
     //  Connect may succeed in synchronous manner.
     if (rc == 0) {
+#if 0
         handle = add_fd (s);
         handle_valid = true;
         out_event ();
+#endif
     }
 
     //  Connection establishment may be delayed. Poll for its completion.
