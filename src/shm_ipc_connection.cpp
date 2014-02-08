@@ -43,8 +43,11 @@
 #include <iostream>
 
 
-zmq::shm_ipc_connection_t::shm_ipc_connection_t (class socket_base_t *socket) :
-	shm_ipc_ring_t(socket)
+zmq::shm_ipc_connection_t::shm_ipc_connection_t (class socket_base_t *socket,
+		const address_t *addr_, shm_conn_t conn_type_) :
+	shm_ipc_ring_t(socket),
+	name (addr_->address),
+	conn_type (conn_type_)
 {
 	std::cout<<"Constructing the connection_t\n";
 }
@@ -61,19 +64,56 @@ int zmq::shm_ipc_connecter_t::connect_syn ()
 
 int zmq::shm_ipc_connection_t::alloc_conn ()
 {
-	std::cout << "Alloc_conn: placeholder\n";
-	return 0;
-}
+	if (conn_type == SHM_IPC_CONNECTER) {
+		std::cout << "In alloc_conn of connecter\n";
+		/*
+		 * We need the following: #. Allocate the connection buffers, where
+		 * requests can be sent #. Allocate a space in shared memory to store
+		 * the ring buffer and rest of the stuff.
+		 */
 
-int zmq::shm_ipc_connection_t::init_conn ()
-{
-	std::cout << "Init_conn: placeholder\n";
+		/* TODO: Allocate the connnection buffers */
+	} else if (conn_type == SHM_IPC_LISTENER) {
+		std::cout << "In alloc_conn of listener\n";
+	} else {
+		std::cout << "In alloc_conn of... wait what?\n";
+	}
+
 	return 0;
 }
 
 int zmq::shm_ipc_connection_t::map_conn ()
 {
-	std::cout << "Map_conn: placeholder\n";
+	if (conn_type == SHM_IPC_CONNECTER) {
+		std::cout << "In map_conn of connecter\n";
+
+		/* TODO: map the connection buffer */
+	} else if (conn_type == SHM_IPC_LISTENER) {
+		std::cout << "In map_conn of listener\n";
+	} else {
+		std::cout << "In map_conn of... wait what?\n";
+	}
+
+	return 0;
+}
+
+int zmq::shm_ipc_connection_t::init_conn ()
+{
+	if (conn_type == SHM_IPC_CONNECTER) {
+		std::cout << "In init_conn of connecter\n";
+		map_conn ();
+
+		/* TODO: Initialize the connection buffer */
+	} else if (conn_type == SHM_IPC_LISTENER) {
+		std::cout << "In init_conn of listener\n";
+	} else {
+		std::cout << "In init_conn of... wait what?\n";
+	}
+
+	local_evfd = eventfd(0, 0);
+	zmq_assert(local_evfd != -1);
+
+
 	return 0;
 }
 
@@ -81,7 +121,6 @@ int zmq::shm_ipc_connection_t::create_connection ()
 {
 	alloc_conn();
 	init_conn();
-	map_conn();
 
 	/*
 	 * At this point, we should have an in-memory queue which we can use to

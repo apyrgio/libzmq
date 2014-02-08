@@ -410,6 +410,7 @@ int zmq::socket_base_t::bind (const char *addr_)
         alloc_assert (listener);
         int rc = listener->set_address (address.c_str ());
         if (rc != 0) {
+			std::cout << "Bind failed\n";
             delete listener;
             event_bind_failed (address, zmq_errno());
             return -1;

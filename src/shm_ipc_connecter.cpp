@@ -47,7 +47,7 @@ zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
       const address_t *addr_, bool delayed_start_) :
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
-	shm_ipc_connection_t(session_->get_socket()),
+	shm_ipc_connection_t(session_->get_socket(), addr_, SHM_IPC_CONNECTER),
 	addr (addr_),
     s (retired_fd),
     handle_valid (false),
@@ -67,6 +67,11 @@ zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()
     zmq_assert (!timer_started);
     zmq_assert (!handle_valid);
     zmq_assert (s == retired_fd);
+}
+
+int zmq::shm_ipc_connecter_t::connect_syn ()
+{
+	
 }
 
 void zmq::shm_ipc_connecter_t::process_plug ()
@@ -152,6 +157,7 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
 		std::cout << "Reasonable I guess\n";
         handle = add_fd (s);
         handle_valid = true;
+		set_pollin (handle);
 #if 0
         out_event ();
 #endif

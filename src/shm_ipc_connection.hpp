@@ -22,32 +22,54 @@
 
 #include <string>
 
+#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+
 #include "platform.hpp"
 #include "shm_ipc_ring.hpp"
-
-#if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
+#include "address.hpp"
+#include "shm_ipc_address.hpp"
 
 #include <sys/socket.h>
 #include <sys/un.h>
 
 namespace zmq
 {
+	class shm_ipc_connection_msg_t
+	{
+
+
+	}
+
 	class shm_ipc_connection_t : public shm_ipc_ring_t
 	{
 		public:
 
-			shm_ipc_connection_t (class socket_base_t *socket_);
+			/* The connection type, CONNECTER or LISTENER */
+			enum shm_conn_t {SHM_IPC_CONNECTER, SHM_IPC_LISTENER};
+
+			/* The connection current state */
+			enum shm_conn_state_t {
+				SHM_IPC_STATE_EXPECT_SYN,
+				SHM_IPC_STATE_EXPECT_SYNACK,
+				SHM_IPC_STATE_EXPECT_ACK,
+				SHM_IPC_STATE_OPEN,
+				SHM_IPC_STATE_FAΙLED,
+			}
+
+			shm_ipc_connection_t (class socket_base_t *socket_,
+					const address_t *addr_, shm_conn_t conn_type_);
 			~shm_ipc_connection_t ();
 
+		protected:
 			/* The file descriptor of the remote end */
-			fd_t remote_fd;
+			fd_t remote_evfd;
 
 			/* Our local file descriptor */
 			fd_t local_evfd;
 
 			/* Reserved for the shared memory stuff */
+			std::string name;
 
-		protected:
 			// Part of create_connection
 			int alloc_conn();
 			int init_conn();
@@ -62,14 +84,16 @@ namespace zmq
 			/* ACK phase */
 			int connect_ack ();
 
+			/* The connection type */
+			shm_conn_t conn_type;
+
+			/* The state of the connection */
+			shm_conn_state_t conn_state;
+
 		private:
 
 			/* The socket that is involved in the connection */
 			socket_base_t *socket;
-
-			/* The socket type, CONNECTER or LISTENER */
-			enum sock_type {CONNECTER, LISTENER};
-
 	};
 }
 

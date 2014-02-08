@@ -157,7 +157,7 @@ int zmq::shm_ipc_listener_t::set_address (const char *addr_)
         return -1;
 
     //  Create a listening socket.
-    s = open_socket (AF_UNIX, SOCK_STREAM, 0);
+    s = open_socket (AF_UNIX, SOCK_SEQPACKET, 0);
     if (s == -1)
         return -1;
 

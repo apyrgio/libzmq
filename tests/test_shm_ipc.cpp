@@ -20,9 +20,12 @@
 #include "testutil.hpp"
 #include <iostream>
 
+const char sname[100] = "shm_ipc:///tmp/test";
+
 int main (void)
 {
     setup_test_environment();
+
 	std::cout<<"Creating new zmq context\n";
     void *ctx = zmq_ctx_new ();
     assert (ctx);
@@ -32,7 +35,7 @@ int main (void)
     assert (sb);
 
 	std::cout<<"Binding server socket\n";
-    int rc = zmq_bind (sb, "shm_ipc://@/tmp/tester");
+    int rc = zmq_bind (sb, sname);
     assert (rc == 0);
 
     char endpoint[200];
@@ -41,8 +44,8 @@ int main (void)
     assert (rc == 0);
 
 	std::cout<<"Verifying registration of server socket\n";
-	std::cout<<"shm_ipc://@/tmp/tester ?= "<<endpoint<<"\n";
-    rc = strncmp(endpoint, "shm_ipc://@/tmp/tester", size);
+	std::cout<< sname << " ?= "<< endpoint << "\n";
+    rc = strncmp(endpoint, sname, size);
 
     assert (rc == 0);
 
@@ -51,7 +54,7 @@ int main (void)
     assert (sc);
 
 	std::cout<<"Connecting client socket to server socket\n";
-    rc = zmq_connect (sc, "shm_ipc://@/tmp/tester");
+    rc = zmq_connect (sc, sname);
     assert (rc == 0);
 
     bounce (sb, sc);
