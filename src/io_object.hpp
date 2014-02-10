@@ -52,7 +52,7 @@ namespace zmq
         typedef poller_t::handle_t handle_t;
 
         //  Methods to access underlying poller object.
-        handle_t add_fd (fd_t fd_);
+        handle_t add_fd (fd_t fd_, zmq::i_poll_events *events_ = NULL);
         void rm_fd (handle_t handle_);
         void set_pollin (handle_t handle_);
         void reset_pollin (handle_t handle_);

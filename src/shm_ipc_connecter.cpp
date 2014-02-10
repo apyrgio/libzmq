@@ -24,7 +24,6 @@
 #include <new>
 #include <string>
 
-#include "stream_engine.hpp"
 #include "io_thread.hpp"
 #include "platform.hpp"
 #include "random.hpp"
@@ -33,7 +32,6 @@
 #include "address.hpp"
 #include "shm_ipc_address.hpp"
 #include "shm_ipc_connection.hpp"
-#include "shm_ipc_ring.hpp"
 #include "session_base.hpp"
 
 #include <unistd.h>
@@ -47,7 +45,6 @@ zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
       const address_t *addr_, bool delayed_start_) :
     own_t (io_thread_, options_),
     io_object_t (io_thread_),
-	shm_ipc_connection_t(session_->get_socket(), addr_, SHM_IPC_CONNECTER),
 	addr (addr_),
     s (retired_fd),
     handle_valid (false),
@@ -67,11 +64,6 @@ zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()
     zmq_assert (!timer_started);
     zmq_assert (!handle_valid);
     zmq_assert (s == retired_fd);
-}
-
-int zmq::shm_ipc_connecter_t::connect_syn ()
-{
-	
 }
 
 void zmq::shm_ipc_connecter_t::process_plug ()
@@ -106,22 +98,28 @@ void zmq::shm_ipc_connecter_t::in_event ()
     //  We are not polling for incomming data, so we are actually called
     //  because of error here. However, we can get error on out event as well
     //  on some platforms, so we'll simply handle both events in the same way.
+	std::cout << "In in_event of connecter\n";
+#if 0
     out_event ();
+#endif
 }
 
-void zmq::shm_ipc_connecter_t::out_event ()
+int zmq::shm_ipc_connecter_t::create_connection (fd_t fd_)
 {
-	std::cout << "Are we fucking nuts\n";
-    fd_t fd = connect ();
-    rm_fd (handle);
-    handle_valid = false;
 
-    //  Handle the error condition by attempt to reconnect.
-    if (fd == retired_fd) {
-        close ();
-        add_reconnect_timer();
-        return;
-    }
+	zmq::shm_ipc_connection_t *shm_conn = new (std::nothrow)
+			zmq::shm_ipc_connection_t (fd_, addr->address);
+    alloc_assert (shm_conn);
+
+	shm_connection = shm_conn;
+
+	// The shm connection will handle this socket from now on.
+	// FIXME: do we need to terminate the shm_ipc_connecter?
+	add_fd (fd_, shm_conn);
+
+	return 0;
+
+#if 0
     //  Create the engine object for this connection.
     stream_engine_t *engine = new (std::nothrow)
         stream_engine_t (fd, options, endpoint);
@@ -134,6 +132,26 @@ void zmq::shm_ipc_connecter_t::out_event ()
     terminate ();
 
     socket->event_connected (endpoint, fd);
+#endif
+
+}
+
+// We reach this function only if we have a connect system call in progress
+void zmq::shm_ipc_connecter_t::out_event ()
+{
+    fd_t fd = connect ();
+    rm_fd (handle);
+    handle_valid = false;
+
+    //  Handle the error condition by attempt to reconnect.
+    if (fd == retired_fd) {
+        close ();
+        add_reconnect_timer();
+        return;
+    }
+
+	int r = create_connection(fd);
+	zmq_assert(r >= 0);
 }
 
 void zmq::shm_ipc_connecter_t::timer_event (int id_)
@@ -145,23 +163,20 @@ void zmq::shm_ipc_connecter_t::timer_event (int id_)
 
 void zmq::shm_ipc_connecter_t::start_connecting ()
 {
-	// Create shm_connection
-	create_connection();
-
     //  Open the connecting socket.
     int rc = open ();
 	std::cout << "open() = " << rc << "\n";
 
     //  Connect may succeed in synchronous manner.
     if (rc == 0) {
-		std::cout << "Reasonable I guess\n";
+#if 0
         handle = add_fd (s);
         handle_valid = true;
 		set_pollin (handle);
-#if 0
-        out_event ();
 #endif
-		connect_syn();
+		fd_t fd = connect ();
+		int r = create_connection (fd);
+		zmq_assert (r >= 0);
     }
 
     //  Connection establishment may be delayed. Poll for its completion.

@@ -50,9 +50,14 @@ void zmq::io_object_t::unplug ()
     poller = NULL;
 }
 
-zmq::io_object_t::handle_t zmq::io_object_t::add_fd (fd_t fd_)
+// Add an fd to the poller. Optionally, associate the fd with something other
+// than the caller of the function.
+zmq::io_object_t::handle_t zmq::io_object_t::add_fd (fd_t fd_,
+		zmq::i_poll_events *events_)
 {
-    return poller->add_fd (fd_, this);
+	if (!events_)
+		events_ = this;
+    return poller->add_fd (fd_, events_);
 }
 
 void zmq::io_object_t::rm_fd (handle_t handle_)

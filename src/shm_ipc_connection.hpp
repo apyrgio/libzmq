@@ -24,26 +24,27 @@
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
+#include <stddef.h>
+
+#include "stdint.hpp"
 #include "platform.hpp"
-#include "shm_ipc_ring.hpp"
-#include "address.hpp"
-#include "shm_ipc_address.hpp"
+#include "poller.hpp"
+#include "i_poll_events.hpp"
 
 #include <sys/socket.h>
 #include <sys/un.h>
 
 namespace zmq
 {
-	class shm_ipc_connection_msg_t
-	{
-
-
-	}
-
-	class shm_ipc_connection_t : public shm_ipc_ring_t
+	class shm_ipc_connection_t : public i_poll_events
 	{
 		public:
 
+			shm_ipc_connection_t (fd_t fd_, const std::string addr_);
+			shm_ipc_connection_t (fd_t fd_);
+			~shm_ipc_connection_t ();
+
+		protected:
 			/* The connection type, CONNECTER or LISTENER */
 			enum shm_conn_t {SHM_IPC_CONNECTER, SHM_IPC_LISTENER};
 
@@ -53,14 +54,9 @@ namespace zmq
 				SHM_IPC_STATE_EXPECT_SYNACK,
 				SHM_IPC_STATE_EXPECT_ACK,
 				SHM_IPC_STATE_OPEN,
-				SHM_IPC_STATE_FAΙLED,
-			}
+				SHM_IPC_STATE_FAILED
+			};
 
-			shm_ipc_connection_t (class socket_base_t *socket_,
-					const address_t *addr_, shm_conn_t conn_type_);
-			~shm_ipc_connection_t ();
-
-		protected:
 			/* The file descriptor of the remote end */
 			fd_t remote_evfd;
 
@@ -68,21 +64,7 @@ namespace zmq
 			fd_t local_evfd;
 
 			/* Reserved for the shared memory stuff */
-			std::string name;
-
-			// Part of create_connection
-			int alloc_conn();
-			int init_conn();
-			int map_conn();
-
-			/* Entry function for creating a connection */
-			int create_connection();
-
-			/* Syn phase */
-			int connect_syn ();
-
-			/* ACK phase */
-			int connect_ack ();
+			std::string remote_addr;
 
 			/* The connection type */
 			shm_conn_t conn_type;
@@ -90,17 +72,44 @@ namespace zmq
 			/* The state of the connection */
 			shm_conn_state_t conn_state;
 
+			/* Entry function for creating a connection */
+			int create_connection();
+
+			// Methods to handle handshake messages
+			void in_event ();
+			void out_event ();
+
 		private:
 
-			/* The socket that is involved in the connection */
-			socket_base_t *socket;
+			void set_control_data(struct msghdr *msg, int fd);
+			int get_control_data(struct msghdr *msgh);
+			void free_dgram_msg(struct msghdr *msg);
+			struct msghdr *alloc_dgram_msg(int flag);
+			int receive_dgram_msg(int fd, struct msghdr *msg);
+			int send_dgram_msg(int fd, struct msghdr *msg);
+			int add_empty_rptl_msg(struct msghdr *msg);
+			struct rptl_message *__get_rptl_msg(struct msghdr *msg);
+			void __set_rptl_msg(struct msghdr *msg, struct rptl_message *rptl_msg);
+			struct rptl_message *extract_rptl_msg(struct msghdr *msg);
+			struct rptl_message *receive_rptl_msg(struct rptl_connection *conn,
+				int flag);
+			void free_rptl_msg(struct rptl_message *rptl_msg);
+			struct msghdr *__create_msg(struct rptl_connection *conn, int flag);
+			struct msghdr *create_syn_msg(struct rptl_connection *conn);
+			struct msghdr *create_synack_msg(struct rptl_connection *conn);
+			struct msghdr *create_ack_msg(struct rptl_connection *conn);
+			int send_syn_msg(struct rptl_connection *conn);
+			int send_synack_msg(struct rptl_connection *conn);
+			int send_ack_msg(struct rptl_connection *conn);
+			int connect_syn(struct rptl_connection *conn, char *dest);
+			int connect_synack(struct rptl_connection *conn);
+			int connect_ack(struct rptl_connection *conn);
+			int handle_syn_msg(struct rptl_connection *conn);
+			int handle_synack_msg(struct rptl_connection *conn);
+			int handle_ack_msg(struct rptl_connection *conn);
 	};
 }
 
 #endif
 
 #endif
-
-
-
-

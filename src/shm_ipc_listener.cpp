@@ -25,7 +25,6 @@
 
 #include <string.h>
 
-#include "stream_engine.hpp"
 #include "shm_ipc_address.hpp"
 #include "io_thread.hpp"
 #include "session_base.hpp"
@@ -79,6 +78,20 @@ void zmq::shm_ipc_listener_t::process_term (int linger_)
     own_t::process_term (linger_);
 }
 
+int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
+{
+
+    shm_ipc_connection_t *shm_conn = new (std::nothrow)
+			shm_ipc_connection_t (fd);
+    alloc_assert (engine);
+
+	// The shm connection will handle this socket from now on.
+	// FIXME: do we need to terminate the shm_ipc_connecter?
+	poller->add_fd (fd, shm_conn);
+
+	return 0;
+}
+
 void zmq::shm_ipc_listener_t::in_event ()
 {
 
@@ -92,6 +105,10 @@ void zmq::shm_ipc_listener_t::in_event ()
         return;
     }
 
+	int r = create_connection (fd);
+	zmq_assert (r >= 0);
+
+#if 0
     //  Create the engine object for this connection.
     stream_engine_t *engine = new (std::nothrow)
         stream_engine_t (fd, options, endpoint);
@@ -110,6 +127,7 @@ void zmq::shm_ipc_listener_t::in_event ()
     launch_child (session);
     send_attach (session, engine, false);
     socket->event_accepted (endpoint, fd);
+#endif
 }
 
 int zmq::shm_ipc_listener_t::get_address (std::string &addr_)

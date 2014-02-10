@@ -29,19 +29,15 @@
 #include "stdint.hpp"
 #include "io_object.hpp"
 #include "shm_ipc_connection.hpp"
-#include "shm_ipc_ring.hpp"
+
 
 namespace zmq
 {
-
     class io_thread_t;
     class session_base_t;
     struct address_t;
 
-    class shm_ipc_connecter_t :
-		public own_t,
-		public io_object_t,
-		public shm_ipc_connection_t
+    class shm_ipc_connecter_t : public own_t, public io_object_t
     {
     public:
 
@@ -125,7 +121,10 @@ namespace zmq
         zmq::socket_base_t *socket;
 
 		// The associated connection for the connecter
+		// TODO: fill this with the connection
 		zmq::shm_ipc_connection_t *shm_connection;
+
+		int create_connection (fd_t fd_);
 
         shm_ipc_connecter_t (const shm_ipc_connecter_t&);
         const shm_ipc_connecter_t &operator = (const shm_ipc_connecter_t&);
