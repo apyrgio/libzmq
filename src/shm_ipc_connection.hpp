@@ -34,6 +34,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define HS_INCLUDE_CONTROL_DATA 1
+
 namespace zmq
 {
 	class shm_ipc_connection_t : public i_poll_events
@@ -57,11 +59,26 @@ namespace zmq
 				SHM_IPC_STATE_FAILED
 			};
 
+			enum hs_msg_type {
+				HS_MSG_SYN,
+				HS_MSG_SYNACK,
+				HS_MSG_ACK
+			};
+
+			struct hs_message {
+				hs_msg_type phase;
+				int fd;
+				char conn_path[5];
+			};
+
 			/* The file descriptor of the remote end */
 			fd_t remote_evfd;
 
 			/* Our local file descriptor */
 			fd_t local_evfd;
+
+			/* Our local unix domain socket */
+			fd_t local_sockfd;
 
 			/* Reserved for the shared memory stuff */
 			std::string remote_addr;
@@ -78,8 +95,12 @@ namespace zmq
 			// Methods to handle handshake messages
 			void in_event ();
 			void out_event ();
+			void timer_event (int id_);
 
 		private:
+
+			void alloc_conn();
+			void init_conn();
 
 			void set_control_data(struct msghdr *msg, int fd);
 			int get_control_data(struct msghdr *msgh);
@@ -87,26 +108,25 @@ namespace zmq
 			struct msghdr *alloc_dgram_msg(int flag);
 			int receive_dgram_msg(int fd, struct msghdr *msg);
 			int send_dgram_msg(int fd, struct msghdr *msg);
-			int add_empty_rptl_msg(struct msghdr *msg);
-			struct rptl_message *__get_rptl_msg(struct msghdr *msg);
-			void __set_rptl_msg(struct msghdr *msg, struct rptl_message *rptl_msg);
-			struct rptl_message *extract_rptl_msg(struct msghdr *msg);
-			struct rptl_message *receive_rptl_msg(struct rptl_connection *conn,
-				int flag);
-			void free_rptl_msg(struct rptl_message *rptl_msg);
-			struct msghdr *__create_msg(struct rptl_connection *conn, int flag);
-			struct msghdr *create_syn_msg(struct rptl_connection *conn);
-			struct msghdr *create_synack_msg(struct rptl_connection *conn);
-			struct msghdr *create_ack_msg(struct rptl_connection *conn);
-			int send_syn_msg(struct rptl_connection *conn);
-			int send_synack_msg(struct rptl_connection *conn);
-			int send_ack_msg(struct rptl_connection *conn);
-			int connect_syn(struct rptl_connection *conn, char *dest);
-			int connect_synack(struct rptl_connection *conn);
-			int connect_ack(struct rptl_connection *conn);
-			int handle_syn_msg(struct rptl_connection *conn);
-			int handle_synack_msg(struct rptl_connection *conn);
-			int handle_ack_msg(struct rptl_connection *conn);
+			int add_empty_hs_msg(struct msghdr *msg);
+			struct hs_message *__get_hs_msg(struct msghdr *msg);
+			void __set_hs_msg(struct msghdr *msg, struct hs_message *hs_msg);
+			struct hs_message *extract_hs_msg(struct msghdr *msg);
+			struct hs_message *receive_hs_msg(int flag = 0);
+			void free_hs_msg(struct hs_message *hs_msg);
+			struct msghdr *__create_msg(int flag = 0);
+			struct msghdr *create_syn_msg();
+			struct msghdr *create_synack_msg();
+			struct msghdr *create_ack_msg();
+			int send_syn_msg();
+			int send_synack_msg();
+			int send_ack_msg();
+			int connect_syn();
+			int connect_synack();
+			int connect_ack();
+			int handle_syn_msg();
+			int handle_synack_msg();
+			int handle_ack_msg();
 	};
 }
 

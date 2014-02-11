@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "shm_ipc_address.hpp"
+#include "shm_ipc_connection.hpp"
 #include "io_thread.hpp"
 #include "session_base.hpp"
 #include "config.hpp"
@@ -83,11 +84,11 @@ int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
 
     shm_ipc_connection_t *shm_conn = new (std::nothrow)
 			shm_ipc_connection_t (fd);
-    alloc_assert (engine);
+    alloc_assert (shm_conn);
 
 	// The shm connection will handle this socket from now on.
 	// FIXME: do we need to terminate the shm_ipc_connecter?
-	poller->add_fd (fd, shm_conn);
+	handle = add_fd (fd, shm_conn);
 
 	return 0;
 }
@@ -95,7 +96,7 @@ int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
 void zmq::shm_ipc_listener_t::in_event ()
 {
 
-	std::cout<<"In in_event\n";
+	std::cout<<"In in_event of listener\n";
     fd_t fd = accept ();
 
     //  If connection was reset by the peer in the meantime, just ignore it.

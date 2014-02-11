@@ -42,25 +42,31 @@
 #include <iostream>
 
 
-zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd, std::string *addr_) :
+zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_, std::string addr_) :
+	local_sockfd (fd_),
 	remote_addr (addr_),
-	local_sockfd (fd),
 	conn_type (SHM_IPC_CONNECTER)
 {
 	std::cout<<"Constructing the connection for connecter\n";
 	create_connection ();
-	connect_syn ()
+	connect_syn ();
 }
 
 zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd) :
 	local_sockfd (fd),
-	conn_type = SHM_IPC_LISTENER
+	conn_type (SHM_IPC_LISTENER)
 {
 	std::cout<<"Constructing the connection for listener\n";
 }
 
 zmq::shm_ipc_connection_t::~shm_ipc_connection_t ()
 {
+}
+
+void zmq::shm_ipc_connection_t::timer_event (int id_)
+{
+	// Only for compilation reasons
+	zmq_assert(false);
 }
 
 void zmq::shm_ipc_connection_t::in_event ()
@@ -73,6 +79,19 @@ void zmq::shm_ipc_connection_t::out_event ()
 {
 	zmq_assert(false);
 }
+
+void zmq::shm_ipc_connection_t::alloc_conn ()
+{
+	std::cout << "In alloc_conn of connection\n";
+}
+
+void zmq::shm_ipc_connection_t::init_conn ()
+{
+	std::cout << "In init_conn of connection\n";
+}
+
+
+
 
 int zmq::shm_ipc_connection_t::create_connection ()
 {
@@ -124,7 +143,7 @@ int zmq::shm_ipc_connection_t::get_control_data(struct msghdr *msgh)
  */
 void zmq::shm_ipc_connection_t::free_dgram_msg(struct msghdr *msg)
 {
-	int i;
+	unsigned int i;
 
 	if (!msg) {
 		return; /* FIXME: is this an error? */
@@ -141,7 +160,7 @@ void zmq::shm_ipc_connection_t::free_dgram_msg(struct msghdr *msg)
 
 /**
  * Allocate a datagram message and set all values to zero. Moreover, allocate
- * in advance an iovec that will be used to store the rptl message.  Also,
+ * in advance an iovec that will be used to store the hs message.  Also,
  * optionally create a buffer to store the control message.
  */
 struct msghdr * zmq::shm_ipc_connection_t::alloc_dgram_msg(int flag)
@@ -151,13 +170,13 @@ struct msghdr * zmq::shm_ipc_connection_t::alloc_dgram_msg(int flag)
 	char *buf;
 	int buf_size;
 
-	msg = malloc(sizeof(struct msghdr));
+	msg = (struct msghdr *) malloc(sizeof(struct msghdr));
 	if (!msg) {
 		return NULL;
 	}
 	memset(msg, 0, sizeof(struct msghdr));
 
-	iov = malloc(sizeof(struct iovec));
+	iov = (struct iovec *) malloc(sizeof(struct iovec));
 	if (!iov) {
 		goto out;
 	}
@@ -166,9 +185,9 @@ struct msghdr * zmq::shm_ipc_connection_t::alloc_dgram_msg(int flag)
 	msg->msg_iov = iov;
 	msg->msg_iovlen = 1;
 
-	if (flag & RPTL_INCLUDE_CONTROL_DATA) {
+	if (flag & HS_INCLUDE_CONTROL_DATA) {
 		buf_size = CMSG_SPACE(sizeof(int));
-		buf = malloc(buf_size);
+		buf = (char *) malloc(buf_size);
 		if (!buf) {
 			goto out;
 		}
@@ -196,6 +215,7 @@ int zmq::shm_ipc_connection_t::receive_dgram_msg(int fd, struct msghdr *msg)
 int zmq::shm_ipc_connection_t::send_dgram_msg(int fd, struct msghdr *msg)
 {
 	if (sendmsg(fd, msg, 0) < 0) {
+		std::cout << "Error during send\n";
 		return -errno;
 	}
 
@@ -206,61 +226,60 @@ int zmq::shm_ipc_connection_t::send_dgram_msg(int fd, struct msghdr *msg)
 }
 
 /**
- * Allocate an rptl message and add it to an existing datagram message
+ * Allocate an hs message and add it to an existing datagram message
  */
-int zmq::shm_ipc_connection_t::add_empty_rptl_msg(struct msghdr *msg)
+int zmq::shm_ipc_connection_t::add_empty_hs_msg(struct msghdr *msg)
 {
-	/* The rptl message is always stored in the first iovec */
+	/* The hs message is always stored in the first iovec */
 	struct iovec *iov = &msg->msg_iov[0];
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 
 	if (!iov || msg->msg_iovlen < 1) {
 		return -EBADMSG;
 	}
 
-	rptl_msg = malloc(sizeof(struct rptl_message));
-	if (!rptl_msg) {
+	hs_msg = (struct hs_message *) malloc(sizeof(struct hs_message));
+	if (!hs_msg) {
 		return -ENOMEM;
 	}
-	memset(rptl_msg, 0, sizeof(struct rptl_message));
+	memset(hs_msg, 0, sizeof(struct hs_message));
 
-	iov->iov_base = rptl_msg;
-	iov->iov_len = sizeof(struct rptl_message);
+	iov->iov_base = hs_msg;
+	iov->iov_len = sizeof(struct hs_message);
 
 	return 0;
 }
 
-struct rptl_message * zmq::shm_ipc_connection_t::__get_rptl_msg(struct msghdr *msg)
+struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::__get_hs_msg(struct msghdr *msg)
 {
-	return msg->msg_iov[0].iov_base;
+	return (struct hs_message *) msg->msg_iov[0].iov_base;
 }
 
-void zmq::shm_ipc_connection_t::__set_rptl_msg(struct msghdr *msg, struct rptl_message *rptl_msg)
+void zmq::shm_ipc_connection_t::__set_hs_msg(struct msghdr *msg, struct hs_message *hs_msg)
 {
-	msg->msg_iov[0].iov_base = rptl_msg;
+	msg->msg_iov[0].iov_base = hs_msg;
 }
 
 /**
- * Return the address of the rptl message and then erase it from the datagram
+ * Return the address of the hs message and then erase it from the datagram
  * message. This way, we can free the datagram message without losing the
- * rptl message.
+ * hs message.
  */
-struct rptl_message * zmq::shm_ipc_connection_t::extract_rptl_msg(struct msghdr *msg)
+struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::extract_hs_msg(struct msghdr *msg)
 {
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 
-	rptl_msg = __get_rptl_msg(msg);
-	__set_rptl_msg(msg, NULL);
+	hs_msg = __get_hs_msg(msg);
+	__set_hs_msg(msg, NULL);
 
-	return rptl_msg;
+	return hs_msg;
 }
 
-struct rptl_message * zmq::shm_ipc_connection_t::receive_rptl_msg(struct rptl_connection *conn,
-		int flag)
+struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::receive_hs_msg(int flag)
 {
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 	struct msghdr *msg;
-	int sfd = conn->conn_sfd.fd;
+	int sfd = local_sockfd;
 	int r;
 
 	msg = alloc_dgram_msg(flag);
@@ -268,7 +287,7 @@ struct rptl_message * zmq::shm_ipc_connection_t::receive_rptl_msg(struct rptl_co
 		return NULL;
 	}
 
-	r = add_empty_rptl_msg(msg);
+	r = add_empty_hs_msg(msg);
 	if (r < 0) {
 		return NULL;
 	}
@@ -278,25 +297,25 @@ struct rptl_message * zmq::shm_ipc_connection_t::receive_rptl_msg(struct rptl_co
 		return NULL;
 	}
 
-	rptl_msg = extract_rptl_msg(msg);
+	hs_msg = extract_hs_msg(msg);
 
-	if (flag & RPTL_INCLUDE_CONTROL_DATA) {
+	if (flag & HS_INCLUDE_CONTROL_DATA) {
 		r = get_control_data(msg);
-		rptl_msg->fd = r; /* Store temporarily the received fd to the rptl
+		hs_msg->fd = r; /* Store temporarily the received fd to the hs
 				     message*/
 	}
 
 	free_dgram_msg(msg);
 
-	return rptl_msg;
+	return hs_msg;
 }
 
-void zmq::shm_ipc_connection_t::free_rptl_msg(struct rptl_message *rptl_msg)
+void zmq::shm_ipc_connection_t::free_hs_msg(struct hs_message *hs_msg)
 {
-	free(rptl_msg);
+	free(hs_msg);
 }
 
-struct msghdr * zmq::shm_ipc_connection_t::__create_msg(struct rptl_connection *conn, int flag)
+struct msghdr * zmq::shm_ipc_connection_t::__create_msg(int flag)
 {
 	struct msghdr *msg;
 	int fd;
@@ -307,87 +326,87 @@ struct msghdr * zmq::shm_ipc_connection_t::__create_msg(struct rptl_connection *
 		return NULL;
 	}
 
-	r = add_empty_rptl_msg(msg);
+	r = add_empty_hs_msg(msg);
 	if (r < 0) {
 		return NULL;
 	}
 
-	if (flag & RPTL_INCLUDE_CONTROL_DATA) {
-		fd = conn->local_evfd.fd;
+	if (flag & HS_INCLUDE_CONTROL_DATA) {
+		fd = local_evfd;
 		set_control_data(msg, fd);
 	}
 
 	return msg;
 }
 
-struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg(struct rptl_connection *conn)
+struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg()
 {
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 	struct msghdr *msg;
 
-	msg = __create_msg(conn, RPTL_INCLUDE_CONTROL_DATA);
+	msg = __create_msg(HS_INCLUDE_CONTROL_DATA);
 	if (!msg) {
 		return NULL;
 	}
 
-	rptl_msg = __get_rptl_msg(msg);
-	rptl_msg->phase = RPTL_MSG_SYN;
-	strncpy(rptl_msg->conn_path, conn->path, RPTL_MAX_CONN_PATH_LEN);
+	hs_msg = __get_hs_msg(msg);
+	hs_msg->phase = HS_MSG_SYN;
+	strncpy(hs_msg->conn_path, "path", 5);
 
 	return msg;
 }
 
-struct msghdr *zmq::shm_ipc_connection_t::create_synack_msg(struct rptl_connection *conn)
+struct msghdr *zmq::shm_ipc_connection_t::create_synack_msg()
 {
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 	struct msghdr *msg;
 
-	msg = __create_msg(conn, RPTL_INCLUDE_CONTROL_DATA);
+	msg = __create_msg(HS_INCLUDE_CONTROL_DATA);
 	if (!msg) {
 		return NULL;
 	}
 
-	rptl_msg = __get_rptl_msg(msg);
-	rptl_msg->phase = RPTL_MSG_SYNACK;
+	hs_msg = __get_hs_msg(msg);
+	hs_msg->phase = HS_MSG_SYNACK;
 
 	return msg;
 }
 
-struct msghdr *zmq::shm_ipc_connection_t::create_ack_msg(struct rptl_connection *conn)
+struct msghdr *zmq::shm_ipc_connection_t::create_ack_msg()
 {
-	struct rptl_message *rptl_msg;
+	struct hs_message *hs_msg;
 	struct msghdr *msg;
 
-	msg = __create_msg(conn, 0);
+	msg = __create_msg();
 	if (!msg) {
 		return NULL;
 	}
 
-	rptl_msg = __get_rptl_msg(msg);
-	rptl_msg->phase = RPTL_MSG_ACK;
+	hs_msg = __get_hs_msg(msg);
+	hs_msg->phase = HS_MSG_ACK;
 
 	return msg;
 }
 
 /*
  * FIXME: What I'd like to have here is the following:
- * create_rptl_msg()
+ * create_hs_msg()
  * edit the message (essentially shape it into a syn/synack/ack msg)
- * send_rptl_msg()
- * free_rptl_msg()
+ * send_hs_msg()
+ * free_hs_msg()
  *
- * However, unlike receive_rptl_msg, we cannot send an rptl_message due to the
- * fact that there is no backwards reference from the rptl_msg to the struct
- * msghdr (in receive_rptl_msg's case, we can extract the rptl_msg from the
+ * However, unlike receive_hs_msg, we cannot send an hs_message due to the
+ * fact that there is no backwards reference from the hs_msg to the struct
+ * msghdr (in receive_hs_msg's case, we can extract the hs_msg from the
  * struct msghdr, which is why it's possible).
  */
-int zmq::shm_ipc_connection_t::send_syn_msg(struct rptl_connection *conn)
+int zmq::shm_ipc_connection_t::send_syn_msg()
 {
 	struct msghdr *msg;
-	int sfd = conn->conn_sfd.fd;
+	int sfd = local_sockfd;
 	int r;
 
-	msg = create_syn_msg(conn);
+	msg = create_syn_msg();
 	if (!msg) {
 		return -ENOMEM;
 	}
@@ -400,13 +419,13 @@ int zmq::shm_ipc_connection_t::send_syn_msg(struct rptl_connection *conn)
 	return 0;
 }
 
-int zmq::shm_ipc_connection_t::send_synack_msg(struct rptl_connection *conn)
+int zmq::shm_ipc_connection_t::send_synack_msg()
 {
 	struct msghdr *msg;
-	int sfd = conn->conn_sfd.fd;
+	int sfd = local_sockfd;
 	int r;
 
-	msg = create_synack_msg(conn);
+	msg = create_synack_msg();
 	if (!msg) {
 		return -ENOMEM;
 	}
@@ -419,13 +438,13 @@ int zmq::shm_ipc_connection_t::send_synack_msg(struct rptl_connection *conn)
 	return 0;
 }
 
-int zmq::shm_ipc_connection_t::send_ack_msg(struct rptl_connection *conn)
+int zmq::shm_ipc_connection_t::send_ack_msg()
 {
 	struct msghdr *msg;
-	int sfd = conn->conn_sfd.fd;
+	int sfd = local_sockfd;
 	int r;
 
-	msg = create_ack_msg(conn);
+	msg = create_ack_msg();
 	if (!msg) {
 		return -ENOMEM;
 	}
@@ -449,66 +468,45 @@ int zmq::shm_ipc_connection_t::send_ack_msg(struct rptl_connection *conn)
  * control context.
  */
 
-int zmq::shm_ipc_connection_t::connect_syn(struct rptl_connection *conn, char *dest)
+int zmq::shm_ipc_connection_t::connect_syn()
 {
-	int r, sfd;
+	int r;
 
-	sfd = alloc_socket();
-	if (sfd < 0) {
-		return sfd;
-	}
-
-	conn->conn_sfd.fd = sfd; /* FIXME: Admittedly, this is uglier than
-				    Ecce Homo after the restoration */
-
-	r = connect_to_endpoint_socket(conn, dest);
+	r = send_syn_msg();
 	if (r < 0) {
 		return r;
 	}
 
-	r = register_connection_socket(&control, conn);
-	if (r < 0) {
-		return r;
-	}
-
-	r = send_syn_msg(conn);
-	if (r < 0) {
-		return r;
-	}
-
-	conn->state = RPTL_CONN_STATE_EXPECT_SYNACK;
+	conn_state = SHM_IPC_STATE_EXPECT_SYNACK;
 
 	/* TODO: Free all allocated structures */
 	return 0;
 }
 
-int zmq::shm_ipc_connection_t::connect_synack(struct rptl_connection *conn)
+int zmq::shm_ipc_connection_t::connect_synack()
 {
 	int r;
 
-	r = send_synack_msg(conn);
+	r = send_synack_msg();
 	if (r < 0) {
 		return r;
 	}
 
-	conn->state = RPTL_CONN_STATE_EXPECT_ACK;
+	conn_state = SHM_IPC_STATE_EXPECT_ACK;
 	return 0;
 }
 
-int zmq::shm_ipc_connection_t::connect_ack(struct rptl_connection *conn)
+int zmq::shm_ipc_connection_t::connect_ack()
 {
 	int r;
 
-	r = send_ack_msg(conn);
+	r = send_ack_msg();
 	if (r < 0) {
 		return r;
 	}
 
-	conn->state = RPTL_CONN_STATE_OPEN;
+	conn_state = SHM_IPC_STATE_OPEN;
 	return 0;
 }
-
-
-
 
 #endif

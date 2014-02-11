@@ -99,14 +99,11 @@ void zmq::shm_ipc_connecter_t::in_event ()
     //  because of error here. However, we can get error on out event as well
     //  on some platforms, so we'll simply handle both events in the same way.
 	std::cout << "In in_event of connecter\n";
-#if 0
     out_event ();
-#endif
 }
 
 int zmq::shm_ipc_connecter_t::create_connection (fd_t fd_)
 {
-
 	zmq::shm_ipc_connection_t *shm_conn = new (std::nothrow)
 			zmq::shm_ipc_connection_t (fd_, addr->address);
     alloc_assert (shm_conn);
@@ -115,7 +112,7 @@ int zmq::shm_ipc_connecter_t::create_connection (fd_t fd_)
 
 	// The shm connection will handle this socket from now on.
 	// FIXME: do we need to terminate the shm_ipc_connecter?
-	add_fd (fd_, shm_conn);
+	handle = add_fd (fd_, shm_conn);
 
 	return 0;
 
@@ -165,7 +162,8 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
 {
     //  Open the connecting socket.
     int rc = open ();
-	std::cout << "open() = " << rc << "\n";
+	std::cout << "Connect() has returned with r = " << rc
+		<< "for file descriptor " << s << "\n";
 
     //  Connect may succeed in synchronous manner.
     if (rc == 0) {
@@ -233,7 +231,6 @@ int zmq::shm_ipc_connecter_t::open ()
     if (s == -1)
         return -1;
 
-	std::cout << "Love " << s << "\n";
     //  Set the non-blocking flag.
     unblock_socket (s);
 
@@ -241,7 +238,6 @@ int zmq::shm_ipc_connecter_t::open ()
     int rc = ::connect (s, addr->resolved.shm_ipc_addr->addr (),
         addr->resolved.shm_ipc_addr->addrlen ());
 
-	std::cout << "Kisses: " << rc << strerror(errno) << "\n";
     //  Connect was successfull immediately.
     if (rc == 0)
         return 0;

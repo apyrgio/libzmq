@@ -62,10 +62,6 @@ namespace zmq
         void out_event ();
         void timer_event (int id_);
 
-		// Handshaking functions
-		int connect_syn();
-		int connect_ack();
-
         //  Internal function to start the actual connection establishment.
         void start_connecting ();
 
@@ -124,6 +120,7 @@ namespace zmq
 		// TODO: fill this with the connection
 		zmq::shm_ipc_connection_t *shm_connection;
 
+		// Entry function for creating an shm connection
 		int create_connection (fd_t fd_);
 
         shm_ipc_connecter_t (const shm_ipc_connecter_t&);

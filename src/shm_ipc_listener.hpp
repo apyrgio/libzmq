@@ -89,6 +89,9 @@ namespace zmq
         //  Socket the listerner belongs to.
         zmq::socket_base_t *socket;
 
+		// Entry function for creating an shm connection
+		int create_connection (fd_t fd_);
+
        // String representation of endpoint to bind to
         std::string endpoint;
 
