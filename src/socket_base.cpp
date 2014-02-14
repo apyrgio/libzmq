@@ -384,6 +384,7 @@ int zmq::socket_base_t::bind (const char *addr_)
         errno = EMTHREAD;
         return -1;
     }
+	std::cout << "Bind: IO thread num " << io_thread << "\n";
 
     if (protocol == "tcp") {
         tcp_listener_t *listener = new (std::nothrow) tcp_listener_t (
@@ -598,6 +599,7 @@ int zmq::socket_base_t::connect (const char *addr_)
         errno = EMTHREAD;
         return -1;
     }
+	std::cout << "Connect: IO thread num " << io_thread << "\n";
 
     address_t *paddr = new (std::nothrow) address_t (protocol, address);
     alloc_assert (paddr);
@@ -1292,6 +1294,7 @@ void zmq::socket_base_t::event_connect_retried (std::string &addr_, int interval
 void zmq::socket_base_t::event_listening (std::string &addr_, int fd_)
 {
     if (monitor_events & ZMQ_EVENT_LISTENING) {
+		std::cout << "assert: Probably not here.\n";
         zmq_event_t event;
         event.event = ZMQ_EVENT_LISTENING;
         event.value = fd_;
@@ -1362,6 +1365,7 @@ void zmq::socket_base_t::event_disconnected (std::string &addr_, int fd_)
 void zmq::socket_base_t::monitor_event (zmq_event_t event_, const std::string& addr_)
 {
     if (monitor_socket) {
+		std::cout << "assert: Probably not here.\n";
         const uint16_t eid = (uint16_t)event_.event;
         const uint32_t value = (uint32_t)event_.value;
         // prepare and send first message frame

@@ -69,6 +69,7 @@ void zmq::io_thread_t::in_event ()
     int rc = mailbox.recv (&cmd, 0);
 
     while (rc == 0 || errno == EINTR) {
+		std::cout << "io_thread: Received command\n";
         if (rc == 0)
             cmd.destination->process_command (cmd);
         rc = mailbox.recv (&cmd, 0);

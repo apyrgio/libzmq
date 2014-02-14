@@ -33,6 +33,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/eventfd.h>
 
 #define HS_INCLUDE_CONTROL_DATA 1
 

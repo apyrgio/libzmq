@@ -112,7 +112,11 @@ int zmq::shm_ipc_connecter_t::create_connection (fd_t fd_)
 
 	// The shm connection will handle this socket from now on.
 	// FIXME: do we need to terminate the shm_ipc_connecter?
+	// FIXME: Is it a problem that we add the fd after shm_ipc_connecton
+	// gets initialized?
 	handle = add_fd (fd_, shm_conn);
+	handle_valid = true;
+	set_pollin (handle);
 
 	return 0;
 
@@ -163,15 +167,14 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
     //  Open the connecting socket.
     int rc = open ();
 	std::cout << "Connect() has returned with r = " << rc
-		<< "for file descriptor " << s << "\n";
+		<< " for file descriptor " << s << "\n";
 
     //  Connect may succeed in synchronous manner.
-    if (rc == 0) {
 #if 0
+    if (rc == 0) {
         handle = add_fd (s);
         handle_valid = true;
 		set_pollin (handle);
-#endif
 		fd_t fd = connect ();
 		int r = create_connection (fd);
 		zmq_assert (r >= 0);
@@ -179,7 +182,8 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
 
     //  Connection establishment may be delayed. Poll for its completion.
     else
-    if (rc == -1 && errno == EINPROGRESS) {
+#endif
+    if (rc == 0 || (rc == -1 && errno == EINPROGRESS)) {
         handle = add_fd (s);
         handle_valid = true;
         set_pollout (handle);

@@ -48,15 +48,17 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_, std::string addr_) :
 	conn_type (SHM_IPC_CONNECTER)
 {
 	std::cout<<"Constructing the connection for connecter\n";
+
 	create_connection ();
 	connect_syn ();
 }
 
-zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd) :
-	local_sockfd (fd),
+zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_) :
+	local_sockfd (fd_),
 	conn_type (SHM_IPC_LISTENER)
 {
 	std::cout<<"Constructing the connection for listener\n";
+	init_conn();
 }
 
 zmq::shm_ipc_connection_t::~shm_ipc_connection_t ()
@@ -69,15 +71,128 @@ void zmq::shm_ipc_connection_t::timer_event (int id_)
 	zmq_assert(false);
 }
 
+
 void zmq::shm_ipc_connection_t::in_event ()
 {
-	std::cout << "In in_event of connection\n";
-	zmq_assert(false);
+	int r;
+
+	switch (conn_state) {
+	case SHM_IPC_STATE_EXPECT_SYN:
+		r = handle_syn_msg();
+		zmq_assert (r >= 0);
+
+		std::cout << "SYN finished\n";
+		r = connect_synack();
+		break;
+	case SHM_IPC_STATE_EXPECT_SYNACK:
+		r = handle_synack_msg();
+		zmq_assert (r >= 0);
+
+		std::cout << "SYNACK finished\n";
+		r = connect_ack();
+
+#if 0
+		r = register_connection_eventfd(&control, conn);
+#endif
+
+		break;
+	case SHM_IPC_STATE_EXPECT_ACK:
+		r = handle_ack_msg();
+		zmq_assert (r >= 0);
+
+		printf("ACK finished\n");
+		conn_state = SHM_IPC_STATE_OPEN;
+#if 0
+		r = register_connection_eventfd(&control, conn);
+#endif
+
+		break;
+	default:
+		zmq_assert (false);
+	}
 }
 
 void zmq::shm_ipc_connection_t::out_event ()
 {
 	zmq_assert(false);
+}
+
+/**
+ * When we receive a SYN message, we need to do the following:
+ * a) Receive the rptl message
+ * b) Store the remote eventfd
+ * c) Map the connection path
+ * d) Free the received rptl message
+ * e) Send a SYNACK message
+ */
+int zmq::shm_ipc_connection_t::handle_syn_msg()
+{
+	struct hs_message *hs_msg;
+
+	hs_msg = receive_hs_msg(HS_INCLUDE_CONTROL_DATA);
+	if (!hs_msg || hs_msg->phase != HS_MSG_SYN) {
+		free_hs_msg(hs_msg);
+		return -EBADMSG;
+	}
+
+#if 0
+	/* Send these things to the principal socket */
+	store_remote_eventfd(conn, hs_msg->fd);
+	store_connection_path(conn, hs_msg->conn_path);
+	r = map_conn(conn);
+	if (r < 0) {
+		free_hs_msg(hs_msg);
+		return r;
+	}
+#endif
+
+	//TODO cleanup
+	free_hs_msg(hs_msg);
+
+	return 0;
+}
+
+/**
+ * When we receive a SYNACK message, we need to do the following:
+ * a) Receive the rptl message
+ * b) Store the remote eventfd
+ * c) Free the received rptl message
+ * d) Send a SYNACK message
+ */
+int zmq::shm_ipc_connection_t::handle_synack_msg()
+{
+	struct hs_message *hs_msg;
+
+	hs_msg = receive_hs_msg(HS_INCLUDE_CONTROL_DATA);
+	if (!hs_msg || hs_msg->phase != HS_MSG_SYNACK) {
+		free_hs_msg(hs_msg);
+		return -EBADMSG;
+	}
+
+#if 0
+	/* Store somewhere the remote eventfd */
+	store_remote_eventfd(conn, hs_msg->fd);
+	/* TODO: map_connection_path */
+#endif
+
+	free_hs_msg(hs_msg);
+
+	return 0;
+}
+
+int zmq::shm_ipc_connection_t::handle_ack_msg()
+{
+	struct hs_message *hs_msg;
+
+	hs_msg = receive_hs_msg();
+	if (!hs_msg || hs_msg->phase != HS_MSG_ACK) {
+		free_hs_msg(hs_msg);
+		return -EBADMSG;
+	}
+
+	free_hs_msg(hs_msg);
+
+	return 0;
 }
 
 void zmq::shm_ipc_connection_t::alloc_conn ()
@@ -88,10 +203,8 @@ void zmq::shm_ipc_connection_t::alloc_conn ()
 void zmq::shm_ipc_connection_t::init_conn ()
 {
 	std::cout << "In init_conn of connection\n";
+	local_evfd = eventfd(0, 0);
 }
-
-
-
 
 int zmq::shm_ipc_connection_t::create_connection ()
 {
@@ -205,7 +318,7 @@ out:
 
 int zmq::shm_ipc_connection_t::receive_dgram_msg(int fd, struct msghdr *msg)
 {
-	if (recvmsg(fd, msg, 0) < 0) {
+	if (::recvmsg(fd, msg, 0) < 0) {
 		return -errno;
 	}
 
@@ -214,8 +327,9 @@ int zmq::shm_ipc_connection_t::receive_dgram_msg(int fd, struct msghdr *msg)
 
 int zmq::shm_ipc_connection_t::send_dgram_msg(int fd, struct msghdr *msg)
 {
-	if (sendmsg(fd, msg, 0) < 0) {
-		std::cout << "Error during send\n";
+	if (::sendmsg(fd, msg, 0) < 0) {
+		std::cout << "Error during send (fd: " << fd << ", error: "
+			<< strerror(errno) <<")\n";
 		return -errno;
 	}
 
@@ -255,7 +369,8 @@ struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::__get_
 	return (struct hs_message *) msg->msg_iov[0].iov_base;
 }
 
-void zmq::shm_ipc_connection_t::__set_hs_msg(struct msghdr *msg, struct hs_message *hs_msg)
+void zmq::shm_ipc_connection_t::__set_hs_msg(struct msghdr *msg,
+		struct hs_message *hs_msg)
 {
 	msg->msg_iov[0].iov_base = hs_msg;
 }
@@ -265,7 +380,8 @@ void zmq::shm_ipc_connection_t::__set_hs_msg(struct msghdr *msg, struct hs_messa
  * message. This way, we can free the datagram message without losing the
  * hs message.
  */
-struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::extract_hs_msg(struct msghdr *msg)
+struct zmq::shm_ipc_connection_t::hs_message *
+		zmq::shm_ipc_connection_t::extract_hs_msg(struct msghdr *msg)
 {
 	struct hs_message *hs_msg;
 
@@ -275,7 +391,7 @@ struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::extrac
 	return hs_msg;
 }
 
-struct zmq::shm_ipc_connection_t::hs_message * zmq::shm_ipc_connection_t::receive_hs_msg(int flag)
+struct zmq::shm_ipc_connection_t::hs_message *zmq::shm_ipc_connection_t::receive_hs_msg(int flag)
 {
 	struct hs_message *hs_msg;
 	struct msghdr *msg;

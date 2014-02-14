@@ -48,12 +48,17 @@ zmq::fd_t zmq::mailbox_t::get_fd ()
 
 void zmq::mailbox_t::send (const command_t &cmd_)
 {
+	std::cout << "Send a command\n";
     sync.lock ();
     cpipe.write (cmd_, false);
     bool ok = cpipe.flush ();
     sync.unlock ();
-    if (!ok)
+    if (!ok) {
+		std::cout << "Must signal\n";
         signaler.send ();
+	} else {
+		std::cout << "No need to signal\n";
+	}
 }
 
 int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
@@ -61,6 +66,7 @@ int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
 
     //  Try to get the command straight away.
     if (active) {
+		std::cout << "Received mail, but no signal necessary\n";
         bool ok = cpipe.read (cmd_);
         if (ok)
             return 0;
@@ -77,6 +83,8 @@ int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
 
     //  We've got the signal. Now we can switch into active state.
     active = true;
+
+	std::cout << "Received mail by signalling\n";
 
     //  Get a command.
     errno_assert (rc == 0);

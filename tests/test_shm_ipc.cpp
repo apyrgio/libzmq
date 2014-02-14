@@ -57,6 +57,10 @@ int main (void)
     rc = zmq_connect (sc, sname);
     assert (rc == 0);
 
+	sleep (2);
+	return 0;
+
+	std::cout<<"PAIN!\n";
     bounce (sb, sc);
 
     rc = zmq_close (sc);

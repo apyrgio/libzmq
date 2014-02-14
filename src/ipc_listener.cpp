@@ -173,6 +173,7 @@ int zmq::ipc_listener_t::set_address (const char *addr_)
         goto error;
 
     socket->event_listening (endpoint, s);
+	std::cout << "Listener: We can now accept requests\n";
     return 0;
 
 error:

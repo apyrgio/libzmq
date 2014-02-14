@@ -65,7 +65,7 @@ zmq::shm_ipc_listener_t::~shm_ipc_listener_t ()
 
 void zmq::shm_ipc_listener_t::process_plug ()
 {
-	std::cout<<"In process_plug of listener\n";
+	std::cout<<"Listener: In process_plug\n";
     //  Start polling for incoming connections.
     handle = add_fd (s);
     set_pollin (handle);
@@ -89,6 +89,7 @@ int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
 	// The shm connection will handle this socket from now on.
 	// FIXME: do we need to terminate the shm_ipc_connecter?
 	handle = add_fd (fd, shm_conn);
+	set_pollin (handle);
 
 	return 0;
 }
@@ -98,6 +99,7 @@ void zmq::shm_ipc_listener_t::in_event ()
 
 	std::cout<<"In in_event of listener\n";
     fd_t fd = accept ();
+	std::cout << "Accept (new fd: " << fd << ")\n";
 
     //  If connection was reset by the peer in the meantime, just ignore it.
     //  TODO: Handle specific errors like ENFILE/EMFILE etc.
@@ -105,6 +107,8 @@ void zmq::shm_ipc_listener_t::in_event ()
         socket->event_accept_failed (endpoint, zmq_errno());
         return;
     }
+
+	rm_fd (handle);
 
 	int r = create_connection (fd);
 	zmq_assert (r >= 0);
