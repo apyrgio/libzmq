@@ -105,7 +105,8 @@ void zmq::shm_ipc_connecter_t::in_event ()
 int zmq::shm_ipc_connecter_t::create_connection (fd_t fd_)
 {
 	zmq::shm_ipc_connection_t *shm_conn = new (std::nothrow)
-			zmq::shm_ipc_connection_t (fd_, addr->address);
+			zmq::shm_ipc_connection_t (this, fd_, socket,
+					options, addr->address);
     alloc_assert (shm_conn);
 
 	shm_connection = shm_conn;

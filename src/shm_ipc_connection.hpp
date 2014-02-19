@@ -30,24 +30,39 @@
 #include "platform.hpp"
 #include "poller.hpp"
 #include "i_poll_events.hpp"
+#include "pipe.hpp"
+#include "object.hpp"
 
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/eventfd.h>
 
 #define HS_INCLUDE_CONTROL_DATA 1
+#define HS_MAX_RING_NAME 256
 
 namespace zmq
 {
-	class shm_ipc_connection_t : public i_poll_events
+	class socket_base_t;
+
+	class shm_ipc_connection_t : public i_poll_events, public object_t
 	{
 		public:
 
-			shm_ipc_connection_t (fd_t fd_, const std::string addr_);
-			shm_ipc_connection_t (fd_t fd_);
+			shm_ipc_connection_t (object_t *parent_, fd_t fd_,
+					zmq::socket_base_t *socket_, const options_t &options_,
+					const std::string addr_);
+			shm_ipc_connection_t (object_t *parent, fd_t fd_,
+					zmq::socket_base_t *socket_, const options_t &options_);
 			~shm_ipc_connection_t ();
 
 		protected:
+
+			// The options of the socket
+			options_t options;
+
+			// The socket object
+			socket_base_t *socket;
+
 			/* The connection type, CONNECTER or LISTENER */
 			enum shm_conn_t {SHM_IPC_CONNECTER, SHM_IPC_LISTENER};
 
@@ -100,6 +115,12 @@ namespace zmq
 
 		private:
 
+			unsigned int get_ring_size();
+			unsigned int get_shm_size();
+			zmq::pipe_t *create_shm_pipe (void *mem);
+			void *shm_allocate (unsigned int size);
+
+			void *map_conn();
 			void alloc_conn();
 			void init_conn();
 
@@ -129,8 +150,7 @@ namespace zmq
 			int handle_synack_msg();
 			int handle_ack_msg();
 
-			const unsigned MAX_RING_NAME = 256;
-			char ring_name[MAX_RING_NAME];
+			char ring_name[HS_MAX_RING_NAME];
 	};
 }
 

@@ -21,44 +21,36 @@
 #define __ZMQ_SHM_YPIPE_HPP_INCLUDED__
 
 #include "atomic_ptr.hpp"
-#include "yqueue.hpp"
 #include "platform.hpp"
 #include "ypipe_base.hpp"
+#include "shm_yqueue.hpp"
 #include <iostream>
 
 namespace zmq
 {
 
-    //  Lock-free queue implementation.
+    //  Lock-free, shared-memory queue implementation.
     //  Only a single thread can read from the pipe at any specific moment.
     //  Only a single thread can write to the pipe at any specific moment.
     //  T is the type of the object in the queue.
     //  N is granularity of the pipe, i.e. how many items are needed to
     //  perform next memory allocation.
 
-    template <typename T, int N> class ypipe_t : public ypipe_base_t <T>
+    template <typename T, int N> class shm_ypipe_t : public ypipe_base_t <T>
     {
     public:
 
         //  Initialises the pipe.
-        inline ypipe_t (void *ptr)
+        inline shm_ypipe_t (void *ptr)
         {
-#if 0
-            //  Insert terminator element into the queue.
-            queue.push ();
-
-            //  Let all the pointers to point to the terminator.
-            //  (unless pipe is dead, in which case c is set to NULL).
-            r = w = f = &queue.back ();
-            c.set (&queue.back ());
-#endif
-			queue = new (std::nothrow) yqueue_t <T, N> (ptr);
+			zmq::shm_yqueue_t <T, N> *queue =
+					new (std::nothrow) shm_yqueue_t <T, N> (ptr);
 			alloc_assert (queue);
         }
 
         //  The destructor doesn't have to be virtual. It is mad virtual
         //  just to keep ICC and code checking tools from complaining.
-        inline virtual ~ypipe_t ()
+        inline virtual ~shm_ypipe_t ()
         {
         }
 
@@ -80,11 +72,6 @@ namespace zmq
             //  Place the value to the queue, add new terminator element.
             queue->back () = value_;
             queue->push ();
-#if 0
-            //  Move the "flush up to here" poiter.
-            if (!incomplete_)
-                f = &queue.back ();
-#endif
         }
 
 #ifdef ZMQ_HAVE_OPENVMS
@@ -96,13 +83,11 @@ namespace zmq
         inline bool unwrite (T *value_)
         {
 			// FIXME
-#if 0
-            if (f == &queue.back ())
-                return false;
-            queue.unpush ();
-            *value_ = queue.back ();
-            return true;
-#endif
+			if (queue->unpush ())
+				return false;
+
+			*value_ =  queue->back ();
+			return true;
         }
 
         //  Flush all the completed items into the pipe. Returns false if
@@ -110,58 +95,18 @@ namespace zmq
         //  wake the reader up before using the pipe again.
         inline bool flush ()
         {
-#if 0
-            //  If there are no un-flushed items, do nothing.
-            if (w == f)
-                return true;
-
-            //  Try to set 'c' to 'f'.
-            if (c.cas (w, f) != w) {
-
-                //  Compare-and-swap was unseccessful because 'c' is NULL.
-                //  This means that the reader is asleep. Therefore we don't
-                //  care about thread-safeness and update c in non-atomic
-                //  manner. We'll return false to let the caller know
-                //  that reader is sleeping.
-                c.set (f);
-                w = f;
-                return false;
-            }
-
-            //  Reader is alive. Nothing special to do now. Just move
-            //  the 'first un-flushed item' pointer to 'f'.
-            w = f;
-            return true;
-#endif
 			queue->flush ();
 
+			// FIXME: at this point, we should kick the eventfd of the other
+			// pipe. Return always true, else the above layers might do
+			// weird stuff.
+			return true;
         }
 
         //  Check whether item is available for reading.
         inline bool check_read ()
         {
-			// FIXME
-#if 0
-            //  Was the value prefetched already? If so, return.
-            if (&queue.front () != r && r)
-                 return true;
-
-            //  There's no prefetched value, so let us prefetch more values.
-            //  Prefetching is to simply retrieve the
-            //  pointer from c in atomic fashion. If there are no
-            //  items to prefetch, set c to NULL (using compare-and-swap).
-            r = c.cas (&queue.front (), NULL);
-
-            //  If there are no elements prefetched, exit.
-            //  During pipe's lifetime r should never be NULL, however,
-            //  it can happen during pipe shutdown when items
-            //  are being deallocated.
-            if (&queue.front () == r || !r)
-                return false;
-
-            //  There was at least one value prefetched.
-            return true;
-#endif
+			return queue->check_pop ();
 
         }
 
@@ -169,23 +114,9 @@ namespace zmq
         //  available.
         inline bool read (T *value_)
         {
-#if 0
-            //  Try to prefetch a value.
-            if (!check_read ())
-                return false;
+			if (!queue->check_pop ())
+				return false;
 
-            //  There was at least one value prefetched.
-            //  Return it to the caller.
-            *value_ = queue.front ();
-            queue.pop ();
-            return true;
-#endif
-            //  Try to prefetch a value.
-            if (!check_read ())
-                return false;
-
-            //  There was at least one value prefetched.
-            //  Return it to the caller.
             queue->pop ();
             *value_ = queue->front ();
 
@@ -200,9 +131,7 @@ namespace zmq
                 bool rc = check_read ();
                 zmq_assert (rc);
 
-				// FIXME: Is this acceptable?
-				queue->pop ();
-                return (*fn) (queue.front ());
+                return (*fn) (queue->peek ());
         }
 
     protected:
@@ -211,28 +140,11 @@ namespace zmq
         //  Front of the queue points to the first prefetched item, back of
         //  the pipe points to last un-flushed item. Front is used only by
         //  reader thread, while back is used only by writer thread.
-        yqueue_t <T, N> *queue;
+        shm_yqueue_t <T, N> *queue;
 
-        //  Points to the first un-flushed item. This variable is used
-        //  exclusively by writer thread.
-        T *w;
-
-        //  Points to the first un-prefetched item. This variable is used
-        //  exclusively by reader thread.
-        T *r;
-
-        //  Points to the first item to be flushed in the future.
-        T *f;
-
-        //  The single point of contention between writer and reader thread.
-        //  Points past the last flushed item. If it is NULL,
-        //  reader is asleep. This pointer should be always accessed using
-        //  atomic operations.
-        atomic_ptr_t <T> c;
-
-        //  Disable copying of ypipe object.
-        ypipe_t (const ypipe_t&);
-        const ypipe_t &operator = (const ypipe_t&);
+        //  Disable copying of shm_ypipe object.
+        shm_ypipe_t (const shm_ypipe_t&);
+        const shm_ypipe_t &operator = (const shm_ypipe_t&);
     };
 
 }

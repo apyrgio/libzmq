@@ -313,7 +313,8 @@ set(cxx-sources
         shm_ipc_connecter.cpp
         shm_ipc_listener.cpp
         shm_ipc_connection.cpp
-        shm_ipc_ring.cpp
+        shm_ypipe.cpp
+        shm_yqueue.cpp
         kqueue.cpp
         lb.cpp
         mailbox.cpp

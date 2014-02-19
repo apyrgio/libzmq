@@ -45,6 +45,9 @@ namespace zmq
     int pipepair (zmq::object_t *parents_ [2], zmq::pipe_t* pipes_ [2],
         int hwms_ [2], bool conflate_ [2]);
 
+	int shm_pipe (zmq::object_t *parent_, zmq::pipe_t** shm_pipe_,
+		int hwms_ [2], bool conflate_, void *ptrs_ [2]);
+
     struct i_pipe_events
     {
         virtual ~i_pipe_events () {}

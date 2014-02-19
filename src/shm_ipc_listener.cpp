@@ -83,7 +83,7 @@ int zmq::shm_ipc_listener_t::create_connection (fd_t fd)
 {
 
     shm_ipc_connection_t *shm_conn = new (std::nothrow)
-			shm_ipc_connection_t (fd);
+			shm_ipc_connection_t (this, fd, socket, options);
     alloc_assert (shm_conn);
 
 	// The shm connection will handle this socket from now on.

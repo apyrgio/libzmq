@@ -29,6 +29,14 @@
 namespace zmq
 {
 
+	struct ctrl_block_t
+	{
+		volatile uint64_t initialized;
+		volatile uint64_t head;
+		volatile uint64_t tail;
+		volatile uint64_t unflushed;
+	};
+
     //  yqueue is an efficient queue implementation. The main goal is
     //  to minimise number of allocations/deallocations needed. Thus yqueue
     //  allocates/deallocates elements in batches of N.
@@ -45,85 +53,56 @@ namespace zmq
     template <typename T, int N> class shm_yqueue_t
     {
     public:
-
         //  Create the queue.
+		//  The shared-memory part of the queue is initialized only one time
         inline shm_yqueue_t (void *ptr)
         {
-
-#if 0
-             begin_chunk = (chunk_t*) malloc (sizeof (chunk_t));
-             alloc_assert (begin_chunk);
-             begin_pos = 0;
-             back_chunk = NULL;
-             back_pos = 0;
-             end_chunk = begin_chunk;
-             end_pos = 0;
-#endif
 			 ctrl = (ctrl_block_t *)ptr;
-			 ctrl->head = 0;
-			 ctrl->tail = ctrl->unflushed = 1;
+			 if (!ctrl->initialized) {
+				 ctrl->head = 0;
+				 ctrl->tail = ctrl->unflushed = 0;
+				 ctrl->initialized = 0;
+			 }
 			 data = ptr + sizeof(struct ctrl_block_t);
         }
 
         //  Destroy the queue.
         inline ~shm_yqueue_t ()
         {
-#if 0
-            while (true) {
-                if (begin_chunk == end_chunk) {
-                    free (begin_chunk);
-                    break;
-                } 
-                chunk_t *o = begin_chunk;
-                begin_chunk = begin_chunk->next;
-                free (o);
-            }
-
-            chunk_t *sc = spare_chunk.xchg (NULL);
-            free (sc);
-#endif
         }
 
         //  Returns reference to the front element of the queue.
         //  If the queue is empty, behaviour is undefined.
         inline T &front ()
         {
-             return &ctrl->slots[ctrl->head];
+             return &data[ctrl->head];
         }
 
         //  Returns reference to the back element of the queue.
         //  If the queue is empty, behaviour is undefined.
         inline T &back ()
         {
-             return &ctrl->slots[ctrl->unflushed];
+             return &data[ctrl->tail];
         }
 
-        //  Adds an element to the back end of the queue.
+		// Check if we can push a new element.
+		// We can push a new element as long as the new tail does not reach
+		// the head of the queue.
+        inline bool check_push ()
+        {
+			unsigned int new_tail = (ctrl->tail + 1) % N;
+
+			return new_tail != ctrl->head;
+		}
+
         inline void push ()
         {
-#if 0
-            back_chunk = end_chunk;
-            back_pos = end_pos;
+			unsigned int new_tail = (ctrl->tail + 1) % N;
 
-            if (++end_pos != N)
-                return;
-
-            chunk_t *sc = spare_chunk.xchg (NULL);
-            if (sc) {
-                end_chunk->next = sc;
-                sc->prev = end_chunk;
-            } else {
-                end_chunk->next = (chunk_t*) malloc (sizeof (chunk_t));
-                alloc_assert (end_chunk->next);
-                end_chunk->next->prev = end_chunk;
-            }
-            end_chunk = end_chunk->next;
-            end_pos = 0;
-#endif
-			if (unlikely(ctrl->unflushed + 1) % N == ctrl->head)
+			if (likely(check_push ()))
+				ctrl->tail = new_tail;
+			else
 				zmq_assert(false);
-
-			ctrl->unflushed = (ctrl->unflushed + 1) % N;
         }
 
         //  Removes element from the back end of the queue. In other words
@@ -133,111 +112,66 @@ namespace zmq
         //  unpush is called. It cannot be done automatically as the read
         //  side of the queue can be managed by different, completely
         //  unsynchronised thread.
-        inline void unpush ()
+        inline int unpush ()
         {
-#if 0
-            //  First, move 'back' one position backwards.
-            if (back_pos)
-                --back_pos;
-            else {
-                back_pos = N - 1;
-                back_chunk = back_chunk->prev;
-            }
-
-            //  Now, move 'end' position backwards. Note that obsolete end chunk
-            //  is not used as a spare chunk. The analysis shows that doing so
-            //  would require free and atomic operation per chunk deallocated
-            //  instead of a simple free.
-            if (end_pos)
-                --end_pos;
-            else {
-                end_pos = N - 1;
-                end_chunk = end_chunk->prev;
-                free (end_chunk->next);
-                end_chunk->next = NULL;
-            }
-#endif
+			//FIXME: we must check if ctrl->tail == ctrl->unflushed
 			// Else it might underflow
-			if (ctrl->unflushed == 0)
-				ctrl->unflushed = N - 1;
+			if (ctrl->tail == ctrl->unflushed)
+				return -1;
+
+			if (ctrl->tail == 0)
+				ctrl->tail = N - 1;
 			else
-				ctrl->unflushed--;
+				ctrl->tail--;
 		}
 
-        //  Removes an element from the front end of the queue.
+		// Check if we can pop a new element.
+		// We can pop a new element as long as the new head does not reach
+		// the unflushed part of the queue.
+        inline bool check_pop ()
+        {
+			return ctrl->head != ctrl->unflushed;
+		}
+
         inline void pop ()
         {
-#if 0
-            if (++ begin_pos == N) {
-                chunk_t *o = begin_chunk;
-                begin_chunk = begin_chunk->next;
-                begin_chunk->prev = NULL;
-                begin_pos = 0;
+			unsigned int new_head = (ctrl->head + 1) % N;
 
-                //  'o' has been more recently used than spare_chunk,
-                //  so for cache reasons we'll get rid of the spare and
-                //  use 'o' as the spare.
-                chunk_t *cs = spare_chunk.xchg (o);
-                free (cs);
-            }
-#endif
-			if (unlikely(ctrl->head + 1) % N == ctrl->tail)
+			if (likely(check_pop ()))
 				zmq_assert(false);
 
-			ctrl->head = (ctrl->head + 1) % N;
+			ctrl->head = new_head;
+        }
+
+        inline T &peek ()
+        {
+			unsigned int new_head = (ctrl->head + 1) % N;
+
+			if (likely(check_pop ()))
+				zmq_assert(false);
+
+			return &data[new_head];
         }
 
         //  Flushes the written data.
         inline void flush ()
         {
-			ctrl->tail = ctrl->unflushed;
+			ctrl->unflushed = ctrl->tail;
 		}
 
     private:
 
-		struct ctrl_block_t
-		{
-			atomic uint64_t head;
-			atomic uint64_t tail;
-			atomic uint64_t unflushed;
-		};
-
+		// A control block where pointers to the head, tail and unflushed
+		// counters are stored.
 		ctrl_block_t *ctrl;
 
-		T *data;
-
-#if 0
-
-        //  Individual memory chunk to hold N elements.
-        struct chunk_t
-        {
-             T values [N];
-             chunk_t *prev;
-             chunk_t *next;
-        };
-
-        //  Back position may point to invalid memory if the queue is empty,
-        //  while begin & end positions are always valid. Begin position is
-        //  accessed exclusively be queue reader (front/pop), while back and
-        //  end positions are accessed exclusively by queue writer (back/push).
-        chunk_t *begin_chunk;
-        int begin_pos;
-        chunk_t *back_chunk;
-        int back_pos;
-        chunk_t *end_chunk;
-        int end_pos;
-
-        //  People are likely to produce and consume at similar rates.  In
-        //  this scenario holding onto the most recently freed chunk saves
-        //  us from having to call malloc/free.
-        atomic_ptr_t<chunk_t> spare_chunk;
+		// A templated array that points to the ring data
+		T *data[N];
 
         //  Disable copying of yqueue.
-        yqueue_t (const yqueue_t&);
-        const yqueue_t &operator = (const yqueue_t&);
-#endif
+        shm_yqueue_t (const shm_yqueue_t&);
+        const shm_yqueue_t &operator = (const shm_yqueue_t&);
     };
-
 }
 
 #endif
