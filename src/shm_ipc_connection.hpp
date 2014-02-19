@@ -128,6 +128,9 @@ namespace zmq
 			int handle_syn_msg();
 			int handle_synack_msg();
 			int handle_ack_msg();
+
+			const unsigned MAX_RING_NAME = 256;
+			char ring_name[MAX_RING_NAME];
 	};
 }
 

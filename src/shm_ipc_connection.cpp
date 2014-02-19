@@ -46,9 +46,11 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_, std::string addr_) :
 	local_sockfd (fd_),
 	remote_addr (addr_),
 	conn_type (SHM_IPC_CONNECTER)
+	// FIXME socket
 {
 	std::cout<<"Constructing the connection for connecter\n";
 
+	snprintf(ring_name, "zeromq/%s_%d", remote_addr.to_string, 1134);
 	create_connection ();
 	connect_syn ();
 }
@@ -56,6 +58,7 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_, std::string addr_) :
 zmq::shm_ipc_connection_t::shm_ipc_connection_t (fd_t fd_) :
 	local_sockfd (fd_),
 	conn_type (SHM_IPC_LISTENER)
+	// FIXME socket
 {
 	std::cout<<"Constructing the connection for listener\n";
 	init_conn();
@@ -71,6 +74,47 @@ void zmq::shm_ipc_connection_t::timer_event (int id_)
 	zmq_assert(false);
 }
 
+#if 0
+char *zmq::shm_ipc_connection_t::get_ring_name ()
+{
+	if (!ring_name[0])
+		snprintf(ring_name, "zeromq/%s_%d", remote_addr.to_string, 1134);
+
+	return ring_name;
+}
+#endif
+
+unsigned int get_ring_size()
+{
+	unsigned int size;
+
+	size = 0;
+	size += sizeof(struct ctrl_block_t);
+	size += message_pipe_granularity * sizeof(msg_t);
+
+	return size;
+}
+
+unsigned int get_shm_size()
+{
+	unsigned int size;
+
+	return 2 * get_ring_size ();
+}
+
+void zmq::shm_ipc_connection_t::shm_allocate (unsigned int size)
+{
+	int fd, r;
+
+	fd = shm_open(ring_name, O_RDWR|O_CREAT|O_EXCL, 0600);
+	zmq_assert (fd >= 0);
+
+	r = ftruncate(fd, size - 1);
+	zmq_assert (r >= 0);
+
+	close(fd);
+	return 0;
+}
 
 void zmq::shm_ipc_connection_t::in_event ()
 {
@@ -195,15 +239,43 @@ int zmq::shm_ipc_connection_t::handle_ack_msg()
 	return 0;
 }
 
+void *zmq::shm_ipc_connection_t::map_conn ()
+{
+	int fd = shm_open(ring_name, O_RDWR, 0600);
+	zmq_assert (fd >= 0);
+
+	unsigned size = get_shm_size ();
+
+	mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	zmq_assert (mem != MAP_FAILED);
+
+	close(fd);
+	return mem;
+}
+
 void zmq::shm_ipc_connection_t::alloc_conn ()
 {
 	std::cout << "In alloc_conn of connection\n";
+
+	unsigned int size = get_shm_size ();
+	shm_allocate(size);
 }
 
 void zmq::shm_ipc_connection_t::init_conn ()
 {
+	pipe_t *pipe;
+
 	std::cout << "In init_conn of connection\n";
 	local_evfd = eventfd(0, 0);
+
+	void *mem = map_conn ();
+	unsigned int size = get_ring_size ();
+
+	if (conn_t == SHM_IPC_CONNECTER) {
+		shm_pipe (socket, pipe, hwms, false, [mem, mem + size]);
+	} else {
+		shm_pipe (socket, pipe, hwms, false, [mem + size, mem]);
+	}
 }
 
 int zmq::shm_ipc_connection_t::create_connection ()

@@ -25,6 +25,7 @@
 
 #include "ypipe.hpp"
 #include "ypipe_conflate.hpp"
+#include "shm_ypipe.hpp"
 
 int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
     int hwms_ [2], bool conflate_ [2])
@@ -58,6 +59,47 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 
     pipes_ [0]->set_peer (pipes_ [1]);
     pipes_ [1]->set_peer (pipes_ [0]);
+
+    return 0;
+}
+
+int zmq::shm_pipe (class object_t *parent_, class pipe_t* shm_pipe_,
+    int hwms_ [2], bool conflate_, void *ptr_ [2])
+{
+    //   Creates two pipe objects. These objects are connected by two ypipes,
+    //   each to pass messages in one direction.
+
+    typedef shm_ypipe_t <msg_t, message_pipe_granularity> shm_upipe_normal_t;
+#if 0
+    typedef ypipe_conflate_t <msg_t> upipe_conflate_t;
+#endif
+
+    pipe_t::upipe_t *shm_upipe1;
+#if 0
+    if(conflate_ [0])
+        upipe1 = new (std::nothrow) upipe_conflate_t ();
+    else
+#endif
+        shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptr[0]);
+    alloc_assert (shm_upipe1);
+
+    pipe_t::upipe_t *shm_upipe2;
+#if 0
+    if(conflate_ [1])
+        upipe2 = new (std::nothrow) upipe_conflate_t ();
+    else
+#endif
+        shm_upipe2 = new (std::nothrow) shm_upipe_normal_t (ptr[1]);
+    alloc_assert (shm_upipe2);
+
+    shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe1, shm_upipe2,
+        hwms_ [1], hwms_ [0], conflate_);
+    alloc_assert (shm_pipe_);
+
+#if 0
+    pipes_ [0]->set_peer (pipes_ [1]);
+    pipes_ [1]->set_peer (pipes_ [0]);
+#endif
 
     return 0;
 }

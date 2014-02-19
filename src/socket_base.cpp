@@ -543,7 +543,7 @@ int zmq::socket_base_t::connect (const char *addr_)
         {
             //  If required, send the identity of the local socket to the peer.
             if (peer.options.recv_identity) {
-    
+
                 msg_t id;
                 rc = id.init_size (options.identity_size);
                 errno_assert (rc == 0);
@@ -673,7 +673,8 @@ int zmq::socket_base_t::connect (const char *addr_)
     bool subscribe_to_all = protocol == "pgm" || protocol == "epgm";
     pipe_t *newpipe = NULL;
 
-    if (options.immediate != 1 || subscribe_to_all) {
+    if (protocol != "shm_ipc" &&
+			(options.immediate != 1 || subscribe_to_all)) {
         //  Create a bi-directional pipe.
         object_t *parents [2] = {this, session};
         pipe_t *new_pipes [2] = {NULL, NULL};
