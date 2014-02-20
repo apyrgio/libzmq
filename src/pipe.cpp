@@ -65,7 +65,7 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 
 //   Creates two pipe objects. These objects are connected by two ypipes,
 //   each to pass messages in one direction.
-int zmq::shm_pipe (class object_t *parent_, class pipe_t** shm_pipe_,
+int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
     int hwms_ [2], bool conflate_, void *ptrs_ [2])
 {
 	zmq_assert (conflate_== false);
@@ -83,7 +83,7 @@ int zmq::shm_pipe (class object_t *parent_, class pipe_t** shm_pipe_,
         hwms_ [1], hwms_ [0], conflate_);
     alloc_assert (shm_pipe_);
 
-	*shm_pipe_->set_peer (NULL);
+	(*shm_pipe_)->set_peer (NULL);
 
     return 0;
 }
@@ -123,8 +123,7 @@ void zmq::pipe_t::set_event_sink (i_pipe_events *sink_)
 {
     // Sink can be set once only.
     zmq_assert (!sink);
-    sink = sink_;
-}
+    sink = sink_; }
 
 void zmq::pipe_t::set_identity (const blob_t &identity_)
 {

@@ -68,10 +68,11 @@ namespace zmq
         public array_item_t <2>,
         public array_item_t <3>
     {
-        //  This allows pipepair to create pipe objects.
+        //  This allows pipepair and shm_pipe to create pipe objects.
         friend int pipepair (zmq::object_t *parents_ [2], zmq::pipe_t* pipes_ [2],
             int hwms_ [2], bool conflate_ [2]);
-            
+		friend int shm_pipe (zmq::object_t *parent_, zmq::pipe_t** shm_pipe_,
+			int hwms_ [2], bool conflate_, void *ptrs_ [2]);
     public:
 
         //  Specifies the object to send events to.
@@ -107,7 +108,7 @@ namespace zmq
         //  all the messages on the fly. Causes 'hiccuped' event to be generated
         //  in the peer.
         void hiccup ();
-        
+
         // Ensure the pipe wont block on receiving pipe_term.
         void set_nodelay ();
 

@@ -63,7 +63,7 @@ namespace zmq
 				 ctrl->tail = ctrl->unflushed = 0;
 				 ctrl->initialized = 0;
 			 }
-			 data = ptr + sizeof(struct ctrl_block_t);
+			 data = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
         }
 
         //  Destroy the queue.
@@ -75,14 +75,14 @@ namespace zmq
         //  If the queue is empty, behaviour is undefined.
         inline T &front ()
         {
-             return &data[ctrl->head];
+             return data[ctrl->head];
         }
 
         //  Returns reference to the back element of the queue.
         //  If the queue is empty, behaviour is undefined.
         inline T &back ()
         {
-             return &data[ctrl->tail];
+            return data[ctrl->tail];
         }
 
 		// Check if we can push a new element.
@@ -112,17 +112,19 @@ namespace zmq
         //  unpush is called. It cannot be done automatically as the read
         //  side of the queue can be managed by different, completely
         //  unsynchronised thread.
-        inline int unpush ()
+        inline bool unpush ()
         {
 			//FIXME: we must check if ctrl->tail == ctrl->unflushed
 			// Else it might underflow
 			if (ctrl->tail == ctrl->unflushed)
-				return -1;
+				return false;
 
 			if (ctrl->tail == 0)
 				ctrl->tail = N - 1;
 			else
 				ctrl->tail--;
+
+			return true;
 		}
 
 		// Check if we can pop a new element.
@@ -150,7 +152,7 @@ namespace zmq
 			if (likely(check_pop ()))
 				zmq_assert(false);
 
-			return &data[new_head];
+			return data[new_head];
         }
 
         //  Flushes the written data.
@@ -166,7 +168,7 @@ namespace zmq
 		ctrl_block_t *ctrl;
 
 		// A templated array that points to the ring data
-		T *data[N];
+		T *data;
 
         //  Disable copying of yqueue.
         shm_yqueue_t (const shm_yqueue_t&);
