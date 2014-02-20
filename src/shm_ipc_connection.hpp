@@ -121,7 +121,8 @@ namespace zmq
 			void generate_ring_name();
 			unsigned int get_ring_size();
 			unsigned int get_shm_size();
-			zmq::pipe_t *create_shm_pipe (void *mem);
+			zmq::pipe_t *alloc_shm_pipe (void *mem);
+			void prepare_shm_pipe (void *mem);
 			void *shm_allocate (unsigned int size);
 			void *shm_map (unsigned int size);
 

@@ -807,13 +807,14 @@ int zmq::socket_base_t::send (msg_t *msg_, int flags_)
     if (flags_ & ZMQ_SNDMORE)
         msg_->set_flags (msg_t::more);
 
+	std::cout << "socket: Before send\n";
     //  Try to send the message.
     rc = xsend (msg_);
     if (rc == 0)
         return 0;
     if (unlikely (errno != EAGAIN))
         return -1;
-
+	std::cout << "socket: After send\n";
     //  In case of non-blocking send we'll simply propagate
     //  the error - including EAGAIN - up the stack.
     if (flags_ & ZMQ_DONTWAIT || options.sndtimeo == 0)
@@ -1043,7 +1044,9 @@ void zmq::socket_base_t::process_stop ()
 
 void zmq::socket_base_t::process_bind (pipe_t *pipe_)
 {
+	std::cout << "process_bind: Iiiin\n";
     attach_pipe (pipe_);
+	std::cout << "process_bind: Ooout\n";
 }
 
 void zmq::socket_base_t::process_term (int linger_)

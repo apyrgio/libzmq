@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <stdarg.h>
+#include <iostream>
 
 #include "object.hpp"
 #include "ctx.hpp"
@@ -61,6 +62,7 @@ zmq::ctx_t *zmq::object_t::get_ctx ()
 
 void zmq::object_t::process_command (command_t &cmd_)
 {
+	std::cout << "Processing a command\n";
     switch (cmd_.type) {
 
     case command_t::activate_read:

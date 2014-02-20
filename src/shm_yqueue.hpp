@@ -57,13 +57,13 @@ namespace zmq
 		//  The shared-memory part of the queue is initialized only one time
         inline shm_yqueue_t (void *ptr)
         {
-			 ctrl = (ctrl_block_t *)ptr;
-			 if (!ctrl->initialized) {
-				 ctrl->head = 0;
-				 ctrl->tail = ctrl->unflushed = 0;
-				 ctrl->initialized = 0;
-			 }
+			 ctrl = (struct ctrl_block_t *)ptr;
+			 zmq_assert(ctrl->initialized == 1134);
 			 data = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
+
+			 std::cout << "Ptr: " << ptr << "\n";
+			 std::cout << "Ctrl: " << ctrl << "\n";
+			 std::cout << "Data: " << data << "\n";
         }
 
         //  Destroy the queue.
@@ -79,9 +79,10 @@ namespace zmq
         }
 
         //  Returns reference to the back element of the queue.
-        //  If the queue is empty, behaviour is undefined.
+        //  If the queue is full, behaviour is undefined.
         inline T &back ()
         {
+			std::cout << "Tail is " << ctrl->tail << "\n";
             return data[ctrl->tail];
         }
 
@@ -140,9 +141,9 @@ namespace zmq
 			unsigned int new_head = (ctrl->head + 1) % N;
 
 			if (likely(check_pop ()))
+				ctrl->head = new_head;
+			else
 				zmq_assert(false);
-
-			ctrl->head = new_head;
         }
 
         inline T &peek ()
@@ -165,7 +166,7 @@ namespace zmq
 
 		// A control block where pointers to the head, tail and unflushed
 		// counters are stored.
-		ctrl_block_t *ctrl;
+		struct ctrl_block_t *ctrl;
 
 		// A templated array that points to the ring data
 		T *data;

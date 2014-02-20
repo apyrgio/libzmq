@@ -74,10 +74,12 @@ int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
     pipe_t::upipe_t *shm_upipe1;
     shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptrs_[0]);
     alloc_assert (shm_upipe1);
+	std::cout << "Pipe 1: " << shm_upipe1 << "\n";
 
     pipe_t::upipe_t *shm_upipe2;
     shm_upipe2 = new (std::nothrow) shm_upipe_normal_t (ptrs_[1]);
     alloc_assert (shm_upipe2);
+	std::cout << "Pipe 2: " << shm_upipe2 << "\n";
 
     *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe1, shm_upipe2,
         hwms_ [1], hwms_ [0], conflate_);
@@ -224,7 +226,10 @@ bool zmq::pipe_t::write (msg_t *msg_)
         return false;
 
     bool more = msg_->flags () & msg_t::more ? true : false;
+	std::cout << "pipe: Before write, outpipe: " << outpipe << "\n";
+	zmq_assert(outpipe != NULL);
     outpipe->write (*msg_, more);
+	std::cout << "pipe: After write\n";
     if (!more)
         msgs_written++;
 

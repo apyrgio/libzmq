@@ -21,6 +21,7 @@
 #include <iostream>
 
 const char sname[100] = "shm_ipc:///tmp/test";
+char death[7];
 
 int main (void)
 {
@@ -57,7 +58,20 @@ int main (void)
     rc = zmq_connect (sc, sname);
     assert (rc == 0);
 
+	// Here comes the difficult part
 	sleep (2);
+	std::cout<<"Send the angel of death\n";
+	rc = zmq_send (sc, "DEATH!", 7, 0);
+	assert (rc == 7);
+
+	std::cout<<"Receive the angel of death\n";
+	rc = zmq_recv (sb, death, 7, 0);
+	assert (rc == 7);
+	assert (strncmp(death, "DEATH!", 7) == 0);
+
+	std::cout << "All OK\n";
+	return 0;
+
 	std::cout << "Bounce!\n";
     bounce (sb, sc);
 

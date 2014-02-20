@@ -40,11 +40,10 @@ namespace zmq
     {
     public:
 
-        //  Initialises the pipe.
+        //  Creates the queue.
         inline shm_ypipe_t (void *ptr)
         {
-			zmq::shm_yqueue_t <T, N> *queue =
-					new (std::nothrow) shm_yqueue_t <T, N> (ptr);
+			queue =	new (std::nothrow) shm_yqueue_t <T, N> (ptr);
 			alloc_assert (queue);
         }
 
@@ -70,8 +69,12 @@ namespace zmq
         inline void write (const T &value_, bool incomplete_)
         {
             //  Place the value to the queue, add new terminator element.
+			std::cout << "ypipe: Before write, queue : " << queue << "\n";
+			alloc_assert (queue);
             queue->back () = value_;
+			std::cout << "ypipe: Middle\n";
             queue->push ();
+			std::cout << "ypipe: After write\n";
         }
 
 #ifdef ZMQ_HAVE_OPENVMS

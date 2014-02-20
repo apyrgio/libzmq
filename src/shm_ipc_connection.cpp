@@ -120,7 +120,7 @@ unsigned int zmq::shm_ipc_connection_t::get_shm_size()
 	return 2 * get_ring_size ();
 }
 
-zmq::pipe_t *zmq::shm_ipc_connection_t::create_shm_pipe (void *mem)
+zmq::pipe_t *zmq::shm_ipc_connection_t::alloc_shm_pipe (void *mem)
 {
 	unsigned int size = get_ring_size ();
 	bool conflate = options.conflate &&
@@ -152,6 +152,24 @@ zmq::pipe_t *zmq::shm_ipc_connection_t::create_shm_pipe (void *mem)
 	}
 
 	return pipe;
+}
+
+void zmq::shm_ipc_connection_t::prepare_shm_pipe (void *mem)
+{
+	struct ctrl_block_t *ctrl;
+	unsigned int size = get_ring_size ();
+	void *mem1 = mem;
+	void *mem2 = (void *)((char *)mem + size);
+
+	ctrl = (struct ctrl_block_t *)mem1;
+	ctrl->initialized = 1134;
+	ctrl->head = ctrl->unflushed = 0;
+	ctrl->tail = 1;
+
+	ctrl = (struct ctrl_block_t *)mem2;
+	ctrl->initialized = 1134;
+	ctrl->head = ctrl->unflushed = 0;
+	ctrl->tail = 1;
 }
 
 void *zmq::shm_ipc_connection_t::shm_allocate (unsigned int size)
@@ -341,8 +359,13 @@ int zmq::shm_ipc_connection_t::create_connection ()
 
 	init_conn();
 	void *mem = map_conn ();
+	std::cout << "Mem: " << mem << "\n";
 
-	pipe_t *pipe = create_shm_pipe (mem);
+	if (conn_type == SHM_IPC_CONNECTER)
+		prepare_shm_pipe (mem);
+
+	pipe_t *pipe = alloc_shm_pipe (mem);
+
 	send_bind (socket, pipe, false);
 
 	/*
