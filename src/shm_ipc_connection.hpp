@@ -68,8 +68,11 @@ namespace zmq
 
 			/* The connection current state */
 			enum shm_conn_state_t {
+				SHM_IPC_STATE_SEND_SYN,
 				SHM_IPC_STATE_EXPECT_SYN,
+				SHM_IPC_STATE_SEND_SYNACK,
 				SHM_IPC_STATE_EXPECT_SYNACK,
+				SHM_IPC_STATE_SEND_ACK,
 				SHM_IPC_STATE_EXPECT_ACK,
 				SHM_IPC_STATE_OPEN,
 				SHM_IPC_STATE_FAILED
@@ -84,7 +87,7 @@ namespace zmq
 			struct hs_message {
 				hs_msg_type phase;
 				int fd;
-				char conn_path[5];
+				char conn_path[HS_MAX_RING_NAME];
 			};
 
 			/* The file descriptor of the remote end */
@@ -115,10 +118,12 @@ namespace zmq
 
 		private:
 
+			void generate_ring_name();
 			unsigned int get_ring_size();
 			unsigned int get_shm_size();
 			zmq::pipe_t *create_shm_pipe (void *mem);
 			void *shm_allocate (unsigned int size);
+			void *shm_map (unsigned int size);
 
 			void *map_conn();
 			void alloc_conn();

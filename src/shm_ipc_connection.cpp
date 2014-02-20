@@ -52,12 +52,13 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
 	socket (socket_),
 	local_sockfd (fd_),
 	remote_addr (addr_),
-	conn_type (SHM_IPC_CONNECTER)
+	conn_type (SHM_IPC_CONNECTER),
+	conn_state (SHM_IPC_STATE_SEND_SYN)
 {
 	std::cout<<"Constructing the connection for connecter\n";
 
-	snprintf(ring_name, HS_MAX_RING_NAME, "zeromq/%s_%d",
-			remote_addr.c_str (), 1134);
+	generate_ring_name ();
+	shm_unlink (ring_name);
 	create_connection ();
 	connect_syn ();
 }
@@ -68,10 +69,10 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
 	options (options_),
 	socket (socket_),
 	local_sockfd (fd_),
-	conn_type (SHM_IPC_LISTENER)
+	conn_type (SHM_IPC_LISTENER),
+	conn_state (SHM_IPC_STATE_EXPECT_SYN)
 {
 	std::cout<<"Constructing the connection for listener\n";
-	init_conn();
 }
 
 zmq::shm_ipc_connection_t::~shm_ipc_connection_t ()
@@ -93,6 +94,15 @@ char *zmq::shm_ipc_connection_t::get_ring_name ()
 	return ring_name;
 }
 #endif
+
+// This function also creates a directory in shared memory
+// FIXME: Create a proper, unique name.
+void zmq::shm_ipc_connection_t::generate_ring_name ()
+{
+	int fd = mkdir("/dev/shm/zeromq", 0600);
+	close (fd);
+	snprintf(ring_name, HS_MAX_RING_NAME, "/zeromq/%s", "todo");
+}
 
 unsigned int zmq::shm_ipc_connection_t::get_ring_size()
 {
@@ -148,7 +158,10 @@ void *zmq::shm_ipc_connection_t::shm_allocate (unsigned int size)
 {
 	int fd, r;
 
+	errno = 0;
 	fd = shm_open(ring_name, O_RDWR|O_CREAT|O_EXCL, 0600);
+	std::cout << "alloc_conn: Ring name: " << ring_name << " errno "
+		<< strerror(errno) << "\n";
 	zmq_assert (fd >= 0);
 
 	r = ftruncate(fd, size - 1);
@@ -156,6 +169,18 @@ void *zmq::shm_ipc_connection_t::shm_allocate (unsigned int size)
 
 	close(fd);
 	return 0;
+}
+
+void *zmq::shm_ipc_connection_t::shm_map (unsigned int size)
+{
+	int fd = shm_open(ring_name, O_RDWR, 0600);
+	zmq_assert (fd >= 0);
+
+	void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	zmq_assert (mem != MAP_FAILED);
+
+	close(fd);
+	return mem;
 }
 
 void zmq::shm_ipc_connection_t::in_event ()
@@ -231,8 +256,12 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
 		return r;
 	}
 #endif
+	remote_evfd = hs_msg->fd;
+	strncpy(ring_name, hs_msg->conn_path, HS_MAX_RING_NAME);
+	std::cout << "handle_syn: Ring name: " << ring_name << "\n";
+	create_connection ();
+	conn_state = SHM_IPC_STATE_SEND_SYNACK;
 
-	//TODO cleanup
 	free_hs_msg(hs_msg);
 
 	return 0;
@@ -260,6 +289,8 @@ int zmq::shm_ipc_connection_t::handle_synack_msg()
 	store_remote_eventfd(conn, hs_msg->fd);
 	/* TODO: map_connection_path */
 #endif
+	remote_evfd = hs_msg->fd;
+	conn_state = SHM_IPC_STATE_SEND_ACK;
 
 	free_hs_msg(hs_msg);
 
@@ -283,16 +314,10 @@ int zmq::shm_ipc_connection_t::handle_ack_msg()
 
 void *zmq::shm_ipc_connection_t::map_conn ()
 {
-	int fd = shm_open(ring_name, O_RDWR, 0600);
-	zmq_assert (fd >= 0);
+	std::cout << "In map_conn of connection\n";
 
-	unsigned size = get_shm_size ();
-
-	void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-	zmq_assert (mem != MAP_FAILED);
-
-	close(fd);
-	return mem;
+	unsigned int size = get_shm_size ();
+	return shm_map (size);
 }
 
 void zmq::shm_ipc_connection_t::alloc_conn ()
@@ -305,25 +330,24 @@ void zmq::shm_ipc_connection_t::alloc_conn ()
 
 void zmq::shm_ipc_connection_t::init_conn ()
 {
-
 	std::cout << "In init_conn of connection\n";
 	local_evfd = eventfd(0, 0);
-
-	void *mem = map_conn ();
-	pipe_t *pipe = create_shm_pipe (mem);
-
-	zmq::object_t::send_bind (socket, pipe, false);
-
 }
 
 int zmq::shm_ipc_connection_t::create_connection ()
 {
-	alloc_conn();
+	if (conn_type == SHM_IPC_CONNECTER)
+		alloc_conn();
+
 	init_conn();
+	void *mem = map_conn ();
+
+	pipe_t *pipe = create_shm_pipe (mem);
+	send_bind (socket, pipe, false);
 
 	/*
 	 * At this point, we should have an in-memory queue which we can use to
-	 * send stuff.
+	 * send messages.
 	 */
 	return 0;
 }
@@ -437,13 +461,10 @@ int zmq::shm_ipc_connection_t::receive_dgram_msg(int fd, struct msghdr *msg)
 
 int zmq::shm_ipc_connection_t::send_dgram_msg(int fd, struct msghdr *msg)
 {
-	if (::sendmsg(fd, msg, 0) < 0) {
-		std::cout << "Error during send (fd: " << fd << ", error: "
-			<< strerror(errno) <<")\n";
-		return -errno;
-	}
+	int r = ::sendmsg(fd, msg, 0);
+	zmq_assert (r >= 0);
 
-	/* The message should be no longer necessary */
+	/* The message should no longer be necessary */
 	free_dgram_msg(msg);
 
 	return 0;
@@ -577,7 +598,7 @@ struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg()
 
 	hs_msg = __get_hs_msg(msg);
 	hs_msg->phase = HS_MSG_SYN;
-	strncpy(hs_msg->conn_path, "path", 5);
+	strncpy(hs_msg->conn_path, ring_name, HS_MAX_RING_NAME);
 
 	return msg;
 }
@@ -705,7 +726,6 @@ int zmq::shm_ipc_connection_t::connect_syn()
 
 	conn_state = SHM_IPC_STATE_EXPECT_SYNACK;
 
-	/* TODO: Free all allocated structures */
 	return 0;
 }
 

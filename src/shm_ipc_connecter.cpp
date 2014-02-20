@@ -170,29 +170,16 @@ void zmq::shm_ipc_connecter_t::start_connecting ()
 	std::cout << "Connect() has returned with r = " << rc
 		<< " for file descriptor " << s << "\n";
 
-    //  Connect may succeed in synchronous manner.
-#if 0
-    if (rc == 0) {
-        handle = add_fd (s);
-        handle_valid = true;
-		set_pollin (handle);
-		fd_t fd = connect ();
-		int r = create_connection (fd);
-		zmq_assert (r >= 0);
-    }
-
-    //  Connection establishment may be delayed. Poll for its completion.
-    else
-#endif
+    //  In Unix-Domain sockets, connect() usually never blocks, even if no one
+	//  has accepted the connection. We will handle however the connection case
+	//  uniformly, as if it's in progress. Our hint that our connection has
+	//  been accepted is when we can write to a socket (POLLOUT).
     if (rc == 0 || (rc == -1 && errno == EINPROGRESS)) {
         handle = add_fd (s);
         handle_valid = true;
         set_pollout (handle);
         socket->event_connect_delayed (endpoint, zmq_errno());
-    }
-
-    //  Handle any other error condition by eventual reconnect.
-    else {
+    } else { //  Handle any other error condition by eventual reconnect.
         if (s != retired_fd)
             close ();
         add_reconnect_timer ();

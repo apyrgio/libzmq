@@ -58,9 +58,7 @@ int main (void)
     assert (rc == 0);
 
 	sleep (2);
-	return 0;
-
-	std::cout<<"PAIN!\n";
+	std::cout << "Bounce!\n";
     bounce (sb, sc);
 
     rc = zmq_close (sc);
