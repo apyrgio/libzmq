@@ -72,7 +72,7 @@ int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
     typedef shm_ypipe_t <msg_t, message_pipe_granularity> shm_upipe_normal_t;
 
     pipe_t::upipe_t *shm_upipe1;
-    shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptrs_[0]);
+    shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptrs_[0], );
     alloc_assert (shm_upipe1);
 	std::cout << "Pipe 1: " << shm_upipe1 << "\n";
 

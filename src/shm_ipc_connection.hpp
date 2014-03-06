@@ -87,6 +87,7 @@ namespace zmq
 			struct hs_message {
 				hs_msg_type phase;
 				int fd;
+				int shm_buffer_size;
 				char conn_path[HS_MAX_RING_NAME];
 			};
 
@@ -156,7 +157,11 @@ namespace zmq
 			int handle_synack_msg();
 			int handle_ack_msg();
 
+			// The name of the ring, under /dev/shm
 			char ring_name[HS_MAX_RING_NAME];
+
+			// Size of extra buffers (inbound/outbound) for non-VSM messages
+			unsigned int shm_buffer_size;
 	};
 }
 

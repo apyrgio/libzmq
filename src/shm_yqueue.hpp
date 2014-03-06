@@ -47,8 +47,7 @@ namespace zmq
     //  element in unsynchronised manner.
     //
     //  T is the type of the object in the queue.
-    //  N is granularity of the queue (how many pushes have to be done till
-    //  actual memory allocation is required).
+    //  N is granularity of the queue (how many messages it can have inflight)
 
     template <typename T, int N> class shm_yqueue_t
     {
@@ -58,12 +57,19 @@ namespace zmq
         inline shm_yqueue_t (void *ptr)
         {
 			 ctrl = (struct ctrl_block_t *)ptr;
-			 zmq_assert(ctrl->initialized == 1134);
-			 data = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
+			 if (!ctrl->initialized) {
+				 ctrl->msg_head = ctrl->msg_unflushed = ctrl->buf_head = 0;
+				 ctrl->msg_tail = ctrl->buf->tail = 1;
+				 ctrl->initialized = 1134;
+			 }
+
+			 msg = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
+			 buffer = (void *)((char *)msg + N * sizeof(T));
 
 			 std::cout << "Ptr: " << ptr << "\n";
 			 std::cout << "Ctrl: " << ctrl << "\n";
-			 std::cout << "Data: " << data << "\n";
+			 std::cout << "msg: " << msg << "\n";
+			 std::cout << "buffer: " << buffer << "\n";
         }
 
         //  Destroy the queue.
@@ -75,7 +81,7 @@ namespace zmq
         //  If the queue is empty, behaviour is undefined.
         inline T &front ()
         {
-             return data[ctrl->head];
+             return msg[ctrl->msg_head];
         }
 
         //  Returns reference to the back element of the queue.
@@ -83,7 +89,7 @@ namespace zmq
         inline T &back ()
         {
 			std::cout << "Tail is " << ctrl->tail << "\n";
-            return data[ctrl->tail];
+            return msg[ctrl->msg_tail];
         }
 
 		// Check if we can push a new element.
@@ -153,10 +159,10 @@ namespace zmq
 			if (likely(check_pop ()))
 				zmq_assert(false);
 
-			return data[new_head];
+			return msg[new_head];
         }
 
-        //  Flushes the written data.
+        //  Flushes the written msg.
         inline void flush ()
         {
 			ctrl->unflushed = ctrl->tail;
@@ -168,8 +174,11 @@ namespace zmq
 		// counters are stored.
 		struct ctrl_block_t *ctrl;
 
-		// A templated array that points to the ring data
-		T *data;
+		// A templated array that points to the ring msg
+		T *msg;
+
+		// An extra buffer for non-VSM messages
+		void *buffer;
 
         //  Disable copying of yqueue.
         shm_yqueue_t (const shm_yqueue_t&);

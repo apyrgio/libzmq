@@ -171,6 +171,11 @@ namespace zmq
         //  Cannot receive multi-part messages.
         //  Ignores hwm
         bool conflate;
+
+		// Size of of extra memory buffer for shm_ipc connections.
+		// Defaults to 128KB.
+		// NOTE: this buffer is allocated *per connection*.
+		int shm_buffer_size;
     };
 }
 

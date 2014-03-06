@@ -75,6 +75,9 @@ namespace zmq
 			std::cout << "ypipe: Middle\n";
             queue->push ();
 			std::cout << "ypipe: After write\n";
+
+			if (!incomplete_)
+				queue->flush ();
         }
 
 #ifdef ZMQ_HAVE_OPENVMS

@@ -55,6 +55,7 @@ zmq::options_t::options_t () :
     as_server (0),
     socket_id (0),
     conflate (false)
+	shm_buffer_size (128 * 1024)
 {
 }
 
@@ -432,6 +433,13 @@ int zmq::options_t::setsockopt (int option_, const void *optval_,
         case ZMQ_CONFLATE:
             if (is_int && (value == 0 || value == 1)) {
                 conflate = (value != 0);
+                return 0;
+            }
+            break;
+
+        case ZMQ_SHM_BUFFER_SIZE:
+            if (is_int && value >= 0) {
+                shm_buffer_size = value;
                 return 0;
             }
             break;

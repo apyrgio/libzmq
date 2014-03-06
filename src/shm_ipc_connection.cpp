@@ -104,6 +104,15 @@ void zmq::shm_ipc_connection_t::generate_ring_name ()
 	snprintf(ring_name, HS_MAX_RING_NAME, "/zeromq/%s", "todo");
 }
 
+void zmq::shm_ipc_connection_t::calculate_ring_size ()
+{
+	int opt_size = sizeof shm_buffer_size;
+	int r;
+
+	r = socket->getsockopt (ZMQ_SHM_BUFFER_SIZE, &shm_buffer_size, &opt_size);
+	zmq_assert (r >= 0);
+}
+
 unsigned int zmq::shm_ipc_connection_t::get_ring_size()
 {
 	unsigned int size;
@@ -111,6 +120,7 @@ unsigned int zmq::shm_ipc_connection_t::get_ring_size()
 	size = 0;
 	size += sizeof(struct zmq::ctrl_block_t);
 	size += message_pipe_granularity * sizeof(zmq::msg_t);
+	size += shm_buffer_size;
 
 	return size;
 }
@@ -161,15 +171,10 @@ void zmq::shm_ipc_connection_t::prepare_shm_pipe (void *mem)
 	void *mem1 = mem;
 	void *mem2 = (void *)((char *)mem + size);
 
-	ctrl = (struct ctrl_block_t *)mem1;
-	ctrl->initialized = 1134;
-	ctrl->head = ctrl->unflushed = 0;
-	ctrl->tail = 1;
-
-	ctrl = (struct ctrl_block_t *)mem2;
-	ctrl->initialized = 1134;
-	ctrl->head = ctrl->unflushed = 0;
-	ctrl->tail = 1;
+	ctrl1 = (struct ctrl_block_t *)mem1;
+	ctrl2 = (struct ctrl_block_t *)mem2;
+	ctrl1->initialized = ctrl2->initialized = 0;
+	ctrl1->shm_buffer_size = ctrl2->shm_buffer_size = shm_buffer_size;
 }
 
 void *zmq::shm_ipc_connection_t::shm_allocate (unsigned int size)
@@ -275,6 +280,7 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
 	}
 #endif
 	remote_evfd = hs_msg->fd;
+	shm_buffer_size = hs_msg->buffer_size;
 	strncpy(ring_name, hs_msg->conn_path, HS_MAX_RING_NAME);
 	std::cout << "handle_syn: Ring name: " << ring_name << "\n";
 	create_connection ();
@@ -342,6 +348,7 @@ void zmq::shm_ipc_connection_t::alloc_conn ()
 {
 	std::cout << "In alloc_conn of connection\n";
 
+	calculate_ring_size ();
 	unsigned int size = get_shm_size ();
 	shm_allocate(size);
 }
@@ -621,6 +628,7 @@ struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg()
 
 	hs_msg = __get_hs_msg(msg);
 	hs_msg->phase = HS_MSG_SYN;
+	hs_msg->shm_buffer_size = shm_buffer_size;
 	strncpy(hs_msg->conn_path, ring_name, HS_MAX_RING_NAME);
 
 	return msg;
