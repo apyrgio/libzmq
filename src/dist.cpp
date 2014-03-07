@@ -96,6 +96,9 @@ void zmq::dist_t::pipe_terminated (pipe_t *pipe_)
 
 void zmq::dist_t::activated (pipe_t *pipe_)
 {
+	// Check if pipe is already active
+	zmq_assert(false);
+
     //  Move the pipe from passive to eligible state.
     pipes.swap (pipes.index (pipe_), eligible);
     eligible++;

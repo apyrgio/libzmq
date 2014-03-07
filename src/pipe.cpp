@@ -68,24 +68,24 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
     int hwms_ [2], bool conflate_, void *ptrs_ [2])
 {
-	zmq_assert (conflate_== false);
+    zmq_assert (conflate_== false);
     typedef shm_ypipe_t <msg_t, message_pipe_granularity> shm_upipe_normal_t;
 
     pipe_t::upipe_t *shm_upipe1;
     shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptrs_[0], );
     alloc_assert (shm_upipe1);
-	std::cout << "Pipe 1: " << shm_upipe1 << "\n";
+    std::cout << "Pipe 1: " << shm_upipe1 << "\n";
 
     pipe_t::upipe_t *shm_upipe2;
     shm_upipe2 = new (std::nothrow) shm_upipe_normal_t (ptrs_[1]);
     alloc_assert (shm_upipe2);
-	std::cout << "Pipe 2: " << shm_upipe2 << "\n";
+    std::cout << "Pipe 2: " << shm_upipe2 << "\n";
 
     *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe1, shm_upipe2,
         hwms_ [1], hwms_ [0], conflate_);
     alloc_assert (shm_pipe_);
 
-	(*shm_pipe_)->set_peer (NULL);
+    (*shm_pipe_)->set_peer (NULL);
 
     return 0;
 }
@@ -226,10 +226,10 @@ bool zmq::pipe_t::write (msg_t *msg_)
         return false;
 
     bool more = msg_->flags () & msg_t::more ? true : false;
-	std::cout << "pipe: Before write, outpipe: " << outpipe << "\n";
-	zmq_assert(outpipe != NULL);
+    std::cout << "pipe: Before write, outpipe: " << outpipe << "\n";
+    zmq_assert(outpipe != NULL);
     outpipe->write (*msg_, more);
-	std::cout << "pipe: After write\n";
+    std::cout << "pipe: After write\n";
     if (!more)
         msgs_written++;
 
@@ -527,4 +527,14 @@ void zmq::pipe_t::set_hwms (int inhwm_, int outhwm_)
 {
     lwm = compute_lwm (inhwm_);
     hwm = outhwm_;
+}
+
+void zmq::pipe_t::mark_inactive_write ()
+{
+    outpipe->mark_inactive ();
+}
+
+void zmq::pipe_t::mark_inactive_read ()
+{
+    inpipe->mark_inactive ();
 }

@@ -40,6 +40,7 @@ void zmq::fq_t::attach (pipe_t *pipe_)
     pipes.push_back (pipe_);
     pipes.swap (active, pipes.size () - 1);
     active++;
+    mark_active (pipes[active]);
 }
 
 void zmq::fq_t::pipe_terminated (pipe_t *pipe_)
@@ -51,6 +52,8 @@ void zmq::fq_t::pipe_terminated (pipe_t *pipe_)
     if (index < active) {
         active--;
         pipes.swap (index, active);
+        mark_inactive (pipes[active]);
+
         if (current == active)
             current = 0;
     }
@@ -64,9 +67,13 @@ void zmq::fq_t::pipe_terminated (pipe_t *pipe_)
 
 void zmq::fq_t::activated (pipe_t *pipe_)
 {
+    // Check if pipe is already active
+    zmq_assert(false);
+
     //  Move the pipe to the list of active pipes.
     pipes.swap (pipes.index (pipe_), active);
     active++;
+    mark_active (pipe);
 }
 
 int zmq::fq_t::recv (msg_t *msg_)
@@ -108,6 +115,8 @@ int zmq::fq_t::recvpipe (msg_t *msg_, pipe_t **pipe_)
 
         active--;
         pipes.swap (current, active);
+        mark_inactive (pipes[active]);
+
         if (current == active)
             current = 0;
     }
@@ -137,6 +146,7 @@ bool zmq::fq_t::has_in ()
         //  Deactivate the pipe.
         active--;
         pipes.swap (current, active);
+        mark_inactive (pipes[active]);
         if (current == active)
             current = 0;
     }
@@ -150,3 +160,12 @@ zmq::blob_t zmq::fq_t::get_credential () const
         last_in->get_credential (): saved_credential;
 }
 
+void zmq::mark_inactive (pipe_t pipe)
+{
+    pipe->mark_inactive_read ();
+}
+
+void zmq::mark_active (pipe_t pipe)
+{
+    pipe->mark_active_read ();
+}

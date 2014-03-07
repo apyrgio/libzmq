@@ -134,11 +134,16 @@ namespace zmq
         //  The pipe mustn't be empty or the function crashes.
         inline bool probe (bool (*fn)(const T &))
         {
-                bool rc = check_read ();
-                zmq_assert (rc);
+			bool rc = check_read ();
+			zmq_assert (rc);
 
-                return (*fn) (queue->peek ());
+			return (*fn) (queue->peek ());
         }
+
+		inline void mark_inactive ()
+		{
+			// Work your magic
+		}
 
     protected:
 
