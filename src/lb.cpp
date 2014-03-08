@@ -55,7 +55,6 @@ void zmq::lb_t::pipe_terminated (pipe_t *pipe_)
     if (index < active) {
         active--;
         pipes.swap (index, active);
-        mark_inactive (pipes[active]);
         if (current == active)
             current = 0;
     }
@@ -64,14 +63,9 @@ void zmq::lb_t::pipe_terminated (pipe_t *pipe_)
 
 void zmq::lb_t::activated (pipe_t *pipe_)
 {
-    // Check if pipe is already active
-    zmq_assert(false);
-
     //  Move the pipe to the list of active pipes.
-    //  No need to mark it as active.
     pipes.swap (pipes.index (pipe_), active);
     active++;
-    mark_active (pipe);
 }
 
 int zmq::lb_t::send (msg_t *msg_)
@@ -107,10 +101,8 @@ int zmq::lb_t::sendpipe (msg_t *msg_, pipe_t **pipe_)
         active--;
         if (current < active)
             pipes.swap (current, active);
-            mark_inactive (pipes[active]);
         else
             current = 0;
-
     }
 
     //  If there are no pipes we cannot send the message.
@@ -150,20 +142,9 @@ bool zmq::lb_t::has_out ()
         //  Deactivate the pipe.
         active--;
         pipes.swap (current, active);
-        mark_inactive (pipes[active]);
         if (current == active)
             current = 0;
     }
 
     return false;
-}
-
-void zmq::mark_inactive (pipe_t pipe)
-{
-    pipe->mark_inactive_write ();
-}
-
-void zmq::mark_active (pipe_t pipe)
-{
-    pipe->mark_active_write ();
 }

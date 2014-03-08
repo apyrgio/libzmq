@@ -97,15 +97,18 @@ namespace zmq
         }
 
         //  Flush all the completed items into the pipe. Returns false if
-        //  the reader thread is sleeping. In that case, caller is obliged to
+        //  the reader thread is sleeping or otherwise needs to be signalled
+        //  to take notice of the pipe. In that case, caller is obliged to
         //  wake the reader up before using the pipe again.
         inline bool flush ()
         {
 			queue->flush ();
 
-			// FIXME: at this point, we should kick the eventfd of the other
-			// pipe. Return always true, else the above layers might do
-			// weird stuff.
+            if (must_signal) {
+                must_signal = false;
+                return false;
+            }
+
 			return true;
         }
 

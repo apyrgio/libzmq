@@ -35,6 +35,7 @@ namespace zmq
 		volatile uint64_t head;
 		volatile uint64_t tail;
 		volatile uint64_t unflushed;
+        volatile bool must_signal;
 	};
 
     //  yqueue is an efficient queue implementation. The main goal is

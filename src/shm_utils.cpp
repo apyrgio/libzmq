@@ -40,7 +40,7 @@ shm_path_t &zmq::shm_utils::shm_generate_random_name (const char &prefix)
     shm_path_t name;
     uint32_t rand = zmq::generate_random ();
 
-    snprintf (name, "/zeromq/%s_%.8x", prefix, rand);
+    snprintf (name, "%s_%.8x", prefix, rand);
 
     return name;
 }
@@ -122,7 +122,7 @@ void zmq::shm_ipc_connection_t::__prepare_shm_pipe (void *mem,
 {
     struct ctrl_block_t *ctrl = (struct ctrl_block_t *)mem;
     ctrl->initialized = 0;
-    ctrl->shm_buffer_size = size;
+    ctrl->must_signal = true;
 }
 
 void zmq::shm_ipc_connection_t::prepare_shm_ring (void *mem,
@@ -141,13 +141,29 @@ void zmq::shm_ipc_connection_t::prepare_shm_cpipe (void *mem)
     __prepare_shm_pipe (mem, 0);
 }
 
+
+shm_path_t &__shm_create_path_name(char *name)
+{
+    shm_path_t path_name = "/zeromq/";
+    int len = 0;
+
+    len += strlen (path_name);
+    len += strlen (name);
+
+    zmq_assert(len <= SHM_PATH_LEN);
+    strncpy(path_name, name, SHM_PATH_LEN);
+
+    return path_name;
+}
+
 // Create a file in shared memory using the provided name and size.
 // If a file with the same name exists, return -1 else abort.
 int *zmq::shm_ipc_connection_t::shm_allocate (char *name, unsigned int size)
 {
     int fd, r;
+    shm_path_t path_name = __shm_create_path_name(name);
 
-    fd = shm_open(name, O_RDWR|O_CREAT|O_EXCL, 0600);
+    fd = shm_open(path_name, O_RDWR|O_CREAT|O_EXCL, 0600);
     if (fd < 0) {
         zmq_assert (errno == EEXIST);
         return -1;
@@ -162,7 +178,9 @@ int *zmq::shm_ipc_connection_t::shm_allocate (char *name, unsigned int size)
 
 void *zmq::shm_ipc_connection_t::shm_map (char *name, unsigned int size)
 {
-    int fd = shm_open(name, O_RDWR, 0600);
+    shm_path_t path_name = __shm_create_path_name(name);
+
+    int fd = shm_open(path_name, O_RDWR, 0600);
     zmq_assert (fd >= 0);
 
     void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);

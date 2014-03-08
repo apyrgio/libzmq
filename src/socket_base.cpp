@@ -158,18 +158,17 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
     return &mailbox;
 }
 
-int zmq::socket_base_t::create_shm_mailbox ()
+void zmq::socket_base_t::create_shm_mailbox ()
 {
     mailbox_t *m = get_mailbox ();
     shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
 
     if (shm_cpipe) {
-        return 0;
+		return;
     }
 
-    shm_mkdir ("zeromq");
-    shm_cpipe_t *cpipe = shm_create_cpipe ();
-
+    shm_cpipe = shm_create_cpipe ();
+	m->set_shm_cpipe ();
 }
 
 void zmq::socket_base_t::stop ()
