@@ -29,14 +29,14 @@
 namespace zmq
 {
 
-	struct ctrl_block_t
-	{
-		volatile uint64_t initialized;
-		volatile uint64_t head;
-		volatile uint64_t tail;
-		volatile uint64_t unflushed;
+    struct ctrl_block_t
+    {
+        volatile uint64_t initialized;
+        volatile uint64_t head;
+        volatile uint64_t tail;
+        volatile uint64_t unflushed;
         volatile bool must_signal;
-	};
+    };
 
     //  yqueue is an efficient queue implementation. The main goal is
     //  to minimise number of allocations/deallocations needed. Thus yqueue
@@ -54,23 +54,23 @@ namespace zmq
     {
     public:
         //  Create the queue.
-		//  The shared-memory part of the queue is initialized only one time
+        //  The shared-memory part of the queue is initialized only one time
         inline shm_yqueue_t (void *ptr)
         {
-			 ctrl = (struct ctrl_block_t *)ptr;
-			 if (!ctrl->initialized) {
-				 ctrl->msg_head = ctrl->msg_unflushed = ctrl->buf_head = 0;
-				 ctrl->msg_tail = ctrl->buf->tail = 1;
-				 ctrl->initialized = 1134;
-			 }
+             ctrl = (struct ctrl_block_t *)ptr;
+             if (!ctrl->initialized) {
+                 ctrl->msg_head = ctrl->msg_unflushed = ctrl->buf_head = 0;
+                 ctrl->msg_tail = ctrl->buf->tail = 1;
+                 ctrl->initialized = 1134;
+             }
 
-			 msg = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
-			 buffer = (void *)((char *)msg + N * sizeof(T));
+             msg = (T *)((char *)ptr + sizeof(struct ctrl_block_t));
+             buffer = (void *)((char *)msg + N * sizeof(T));
 
-			 std::cout << "Ptr: " << ptr << "\n";
-			 std::cout << "Ctrl: " << ctrl << "\n";
-			 std::cout << "msg: " << msg << "\n";
-			 std::cout << "buffer: " << buffer << "\n";
+             std::cout << "Ptr: " << ptr << "\n";
+             std::cout << "Ctrl: " << ctrl << "\n";
+             std::cout << "msg: " << msg << "\n";
+             std::cout << "buffer: " << buffer << "\n";
         }
 
         //  Destroy the queue.
@@ -89,28 +89,28 @@ namespace zmq
         //  If the queue is full, behaviour is undefined.
         inline T &back ()
         {
-			std::cout << "Tail is " << ctrl->tail << "\n";
+            std::cout << "Tail is " << ctrl->tail << "\n";
             return msg[ctrl->msg_tail];
         }
 
-		// Check if we can push a new element.
-		// We can push a new element as long as the new tail does not reach
-		// the head of the queue.
+        // Check if we can push a new element.
+        // We can push a new element as long as the new tail does not reach
+        // the head of the queue.
         inline bool check_push ()
         {
-			unsigned int new_tail = (ctrl->tail + 1) % N;
+            unsigned int new_tail = (ctrl->tail + 1) % N;
 
-			return new_tail != ctrl->head;
-		}
+            return new_tail != ctrl->head;
+        }
 
         inline void push ()
         {
-			unsigned int new_tail = (ctrl->tail + 1) % N;
+            unsigned int new_tail = (ctrl->tail + 1) % N;
 
-			if (likely(check_push ()))
-				ctrl->tail = new_tail;
-			else
-				zmq_assert(false);
+            if (likely(check_push ()))
+                ctrl->tail = new_tail;
+            else
+                zmq_assert(false);
         }
 
         //  Removes element from the back end of the queue. In other words
@@ -122,64 +122,64 @@ namespace zmq
         //  unsynchronised thread.
         inline bool unpush ()
         {
-			//FIXME: we must check if ctrl->tail == ctrl->unflushed
-			// Else it might underflow
-			if (ctrl->tail == ctrl->unflushed)
-				return false;
+            //FIXME: we must check if ctrl->tail == ctrl->unflushed
+            // Else it might underflow
+            if (ctrl->tail == ctrl->unflushed)
+                return false;
 
-			if (ctrl->tail == 0)
-				ctrl->tail = N - 1;
-			else
-				ctrl->tail--;
+            if (ctrl->tail == 0)
+                ctrl->tail = N - 1;
+            else
+                ctrl->tail--;
 
-			return true;
-		}
+            return true;
+        }
 
-		// Check if we can pop a new element.
-		// We can pop a new element as long as the new head does not reach
-		// the unflushed part of the queue.
+        // Check if we can pop a new element.
+        // We can pop a new element as long as the new head does not reach
+        // the unflushed part of the queue.
         inline bool check_pop ()
         {
-			return ctrl->head != ctrl->unflushed;
-		}
+            return ctrl->head != ctrl->unflushed;
+        }
 
         inline void pop ()
         {
-			unsigned int new_head = (ctrl->head + 1) % N;
+            unsigned int new_head = (ctrl->head + 1) % N;
 
-			if (likely(check_pop ()))
-				ctrl->head = new_head;
-			else
-				zmq_assert(false);
+            if (likely(check_pop ()))
+                ctrl->head = new_head;
+            else
+                zmq_assert(false);
         }
 
         inline T &peek ()
         {
-			unsigned int new_head = (ctrl->head + 1) % N;
+            unsigned int new_head = (ctrl->head + 1) % N;
 
-			if (likely(check_pop ()))
-				zmq_assert(false);
+            if (likely(check_pop ()))
+                zmq_assert(false);
 
-			return msg[new_head];
+            return msg[new_head];
         }
 
         //  Flushes the written msg.
         inline void flush ()
         {
-			ctrl->unflushed = ctrl->tail;
-		}
+            ctrl->unflushed = ctrl->tail;
+        }
 
     private:
 
-		// A control block where pointers to the head, tail and unflushed
-		// counters are stored.
-		struct ctrl_block_t *ctrl;
+        // A control block where pointers to the head, tail and unflushed
+        // counters are stored.
+        struct ctrl_block_t *ctrl;
 
-		// A templated array that points to the ring msg
-		T *msg;
+        // A templated array that points to the ring msg
+        T *msg;
 
-		// An extra buffer for non-VSM messages
-		void *buffer;
+        // An extra buffer for non-VSM messages
+        void *buffer;
 
         //  Disable copying of yqueue.
         shm_yqueue_t (const shm_yqueue_t&);

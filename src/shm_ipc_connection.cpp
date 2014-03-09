@@ -51,17 +51,11 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
     options (options_),
     socket (socket_),
     local_sockfd (fd_),
-    remote_addr (addr_),
     conn_type (SHM_IPC_CONNECTER),
     conn_state (SHM_IPC_STATE_SEND_SYN)
 {
     std::cout<<"Constructing the connection for connecter\n";
-
-    try_alloc_shm_mailbox ();
-    generate_ring_name ();
-    shm_unlink (ring_name);
-    create_connection ();
-    create_shm_mailbox ();
+    local_mailfd = socket->get_mailbox()->get_fd();
     connect_syn ();
 }
 
@@ -687,6 +681,8 @@ struct msghdr *zmq::shm_ipc_connection_t::create_synack_msg()
 
     hs_msg = __get_hs_msg(msg);
     hs_msg->phase = HS_MSG_SYNACK;
+    hs
+
 
     return msg;
 }

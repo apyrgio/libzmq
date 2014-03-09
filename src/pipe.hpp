@@ -145,6 +145,10 @@ namespace zmq
         //  the peer pipe object.
         void set_peer (pipe_t *pipe_);
 
+        //  Shm_pipe uses this function to let us know about
+        //  the associated mailbox pipe.
+        void set_associated_mailbox_pipe (shm_mpipe_t *shm_mpipe_);
+
         //  Destructor is private. Pipe objects destroy themselves.
         ~pipe_t ();
 
@@ -214,6 +218,14 @@ namespace zmq
         static int compute_lwm (int hwm_);
 
         bool conflate;
+
+        //  If this pipe is in shared memory, then it doesn't have a peer pipe,
+        //  as the peer is a different process. It has however an
+        //  associated mailbox that it must signal. This associated mailbox
+        //  lies in the address space of the peer process, so we can't possibly
+        //  signal it using mailbox semantics. Instead, we can use the
+        //  following pipe to send commands to it.
+        shm_mpipe_t *associated_mailbox_pipe;
 
         //  Disable copying.
         pipe_t (const pipe_t&);

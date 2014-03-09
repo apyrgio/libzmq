@@ -24,7 +24,6 @@
 #include "platform.hpp"
 #include "ypipe_base.hpp"
 #include "shm_yqueue.hpp"
-#include "shm_utils.hpp"
 #include <iostream>
 
 namespace zmq
@@ -42,33 +41,11 @@ namespace zmq
     public:
 
         //  Creates the queue.
-        inline shm_ypipe_t ()
+        inline shm_ypipe_t (void *ptr)
         {
-            int r;
-            unsigned int size = get_ypipe_size ();
-
-            do {
-                name = shm_generate_random_name ("pipe");
-                r = shm_allocate (name, size);
-            } while (r < 0);
-
-            void *mem = shm_map (name, size);
-            prepare_shm_ypipe (mem);
-
-			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
+			queue =	new (std::nothrow) shm_yqueue_t <T, N> (ptr);
 			alloc_assert (queue);
-			ctrl = (struct ctrl_block_t *)mem;
-        }
-
-        //  Maps the queue.
-        inline shm_ypipe_t (std::string name)
-        {
-            unsigned int size = get_ypipe_size ();
-            void *mem = shm_map (name, size);
-
-			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
-			alloc_assert (queue);
-			ctrl = (struct ctrl_block_t *)mem;
+			ctrl = (struct ctrl_block_t *)ptr;
         }
 
         //  The destructor doesn't have to be virtual. It is mad virtual
@@ -182,9 +159,6 @@ namespace zmq
         //  the pipe points to last un-flushed item. Front is used only by
         //  reader thread, while back is used only by writer thread.
         shm_yqueue_t <T, N> *queue;
-
-        //  The name of the pipe
-        shm_path_t name;
 
         //  Disable copying of shm_ypipe object.
         shm_ypipe_t (const shm_ypipe_t&);

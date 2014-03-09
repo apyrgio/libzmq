@@ -91,11 +91,11 @@ namespace zmq
 				char conn_path[HS_MAX_RING_NAME];
 			};
 
-			/* The file descriptor of the remote end */
-			fd_t remote_evfd;
+			/* The file descriptor of the remote mailbox */
+			fd_t remote_mailfd;
 
-			/* Our local file descriptor */
-			fd_t local_evfd;
+			/* The file descriptor of the socket's mailbox */
+			fd_t local_mailfd;
 
 			/* Our local unix domain socket */
 			fd_t local_sockfd;

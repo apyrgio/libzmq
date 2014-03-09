@@ -21,8 +21,9 @@
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
 #include "random.hpp"
+#include "shm_utils.hpp"
 
-void zmq::shm_ipc_connection_t::shm_mkdir (const char &name)
+void zmq::shm_mkdir (const char &name)
 {
     shm_path_t dir = SHM_PATH;
 
@@ -35,7 +36,7 @@ void zmq::shm_ipc_connection_t::shm_mkdir (const char &name)
 
 // A uint32_t in hexademical is at most 8 characters. Prepend with
 // zeroes where necessary.
-shm_path_t &zmq::shm_utils::shm_generate_random_name (const char &prefix)
+shm_path_t &zmq::shm_generate_random_name (const char &prefix)
 {
     shm_path_t name;
     uint32_t rand = zmq::generate_random ();
@@ -45,7 +46,7 @@ shm_path_t &zmq::shm_utils::shm_generate_random_name (const char &prefix)
     return name;
 }
 
-void zmq::shm_ipc_connection_t::calculate_ring_size ()
+void zmq::calculate_ring_size ()
 {
     int opt_size = sizeof shm_buffer_size;
     int r;
@@ -54,7 +55,7 @@ void zmq::shm_ipc_connection_t::calculate_ring_size ()
     zmq_assert (r >= 0);
 }
 
-unsigned int zmq::shm_ipc_connection_t::get_ypipe_size(unsigned int bsize)
+unsigned int zmq::get_ypipe_size(unsigned int bsize)
 {
     unsigned int size;
 
@@ -66,7 +67,7 @@ unsigned int zmq::shm_ipc_connection_t::get_ypipe_size(unsigned int bsize)
     return size;
 }
 
-unsigned int zmq::shm_ipc_connection_t::get_cpipe_size()
+unsigned int zmq::get_cpipe_size ()
 {
     unsigned int size;
 
@@ -77,12 +78,12 @@ unsigned int zmq::shm_ipc_connection_t::get_cpipe_size()
     return size;
 }
 
-unsigned int zmq::shm_ipc_connection_t::get_shm_size()
+unsigned int zmq::get_shm_size()
 {
     return 2 * get_ring_size ();
 }
 
-zmq::pipe_t *zmq::shm_ipc_connection_t::alloc_shm_pipe (void *mem)
+zmq::pipe_t *zmq::alloc_shm_pipe (void *mem)
 {
     unsigned int size = get_ring_size ();
     bool conflate = options.conflate &&
@@ -117,7 +118,7 @@ zmq::pipe_t *zmq::shm_ipc_connection_t::alloc_shm_pipe (void *mem)
 }
 
 
-void zmq::shm_ipc_connection_t::__prepare_shm_pipe (void *mem,
+void zmq::__prepare_shm_pipe (void *mem,
         unsigned int size)
 {
     struct ctrl_block_t *ctrl = (struct ctrl_block_t *)mem;
@@ -125,7 +126,7 @@ void zmq::shm_ipc_connection_t::__prepare_shm_pipe (void *mem,
     ctrl->must_signal = true;
 }
 
-void zmq::shm_ipc_connection_t::prepare_shm_ring (void *mem,
+void zmq::prepare_shm_ring (void *mem,
         unsigned int size)
 {
     unsigned int size = get_ypipe_size ();
@@ -136,7 +137,7 @@ void zmq::shm_ipc_connection_t::prepare_shm_ring (void *mem,
     __prepare_shm_pipe (mem2, size);
 }
 
-void zmq::shm_ipc_connection_t::prepare_shm_cpipe (void *mem)
+void zmq::prepare_shm_cpipe (void *mem)
 {
     __prepare_shm_pipe (mem, 0);
 }
@@ -158,7 +159,7 @@ shm_path_t &__shm_create_path_name(char *name)
 
 // Create a file in shared memory using the provided name and size.
 // If a file with the same name exists, return -1 else abort.
-int *zmq::shm_ipc_connection_t::shm_allocate (char *name, unsigned int size)
+int *zmq::shm_allocate (char *name, unsigned int size)
 {
     int fd, r;
     shm_path_t path_name = __shm_create_path_name(name);
@@ -176,7 +177,7 @@ int *zmq::shm_ipc_connection_t::shm_allocate (char *name, unsigned int size)
     return 0;
 }
 
-void *zmq::shm_ipc_connection_t::shm_map (char *name, unsigned int size)
+void *zmq::shm_map (char *name, unsigned int size)
 {
     shm_path_t path_name = __shm_create_path_name(name);
 
@@ -190,12 +191,12 @@ void *zmq::shm_ipc_connection_t::shm_map (char *name, unsigned int size)
     return mem;
 }
 
-shm_cpipe_t *zmq::shm_utils::shm_alloc_cpipe (void *mem)
+shm_cpipe_t *zmq::shm_alloc_cpipe (void *mem)
 {
     return new (std::nothrow) shm_cpipe_t (mem);
 }
 
-shm_cpipe_t *zmq::shm_utils::shm_create_cpipe ()
+shm_cpipe_t *zmq::shm_create_cpipe ()
 {
     shm_path_t name;
     int r;

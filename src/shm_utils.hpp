@@ -28,5 +28,7 @@ namespace zmq
     typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
     typedef char[SHM_PATH_LEN] shm_path_t;
 
-
+    unsigned int get_ypipe_size ();
 }
+
+#endif
