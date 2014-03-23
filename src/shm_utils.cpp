@@ -83,7 +83,7 @@ unsigned int zmq::get_shm_size()
     return 2 * get_ring_size ();
 }
 
-zmq::pipe_t *zmq::alloc_shm_pipe (void *mem)
+zmq::pipe_t *zmq::shm_alloc_pipe (void *mem)
 {
     unsigned int size = get_ring_size ();
     bool conflate = options.conflate &&
@@ -118,12 +118,12 @@ zmq::pipe_t *zmq::alloc_shm_pipe (void *mem)
 }
 
 
-void zmq::__prepare_shm_pipe (void *mem,
-        unsigned int size)
+void zmq::__prepare_shm_pipe (shm_path_t &name, void *mem, unsigned int size)
 {
     struct ctrl_block_t *ctrl = (struct ctrl_block_t *)mem;
     ctrl->initialized = 0;
     ctrl->must_signal = true;
+    ctrl->name = name;
 }
 
 void zmq::prepare_shm_ring (void *mem,
@@ -133,13 +133,13 @@ void zmq::prepare_shm_ring (void *mem,
     void *mem1 = mem;
     void *mem2 = (void *)((char *)mem + size);
 
-    __prepare_shm_pipe (mem1, size);
-    __prepare_shm_pipe (mem2, size);
+    __prepare_shm_pipe (name, mem1, size);
+    __prepare_shm_pipe (name, mem2, size);
 }
 
-void zmq::prepare_shm_cpipe (void *mem)
+void zmq::prepare_shm_cpipe (shm_path_t &name, void *mem)
 {
-    __prepare_shm_pipe (mem, 0);
+    __prepare_shm_pipe (name, mem, 0);
 }
 
 
@@ -212,9 +212,31 @@ shm_cpipe_t *zmq::shm_create_cpipe ()
     } while (r < 0);
 
     void *mem = shm_map (name, size);
-    prepare_shm_cpipe (mem);
+    prepare_shm_cpipe (name, mem);
 
     return shm_alloc_cpipe (mem);
+}
+
+pipe_t *zmq::shm_create_ring (shm_path_t *ring_name = NULL)
+{
+    int r;
+
+    shm_mkdir ("zeromq");
+    unsigned int size = get_ring_size ();
+
+    if (!ring_name) {
+        // If allocation fails due to a duplicate name, retry.
+        // Note that this is uncommon, but we must handle it anyway.
+        do {
+            ring_name = shm_generate_random_name ("ring");
+            r = shm_allocate (ring_name, size);
+        } while (r < 0);
+    }
+
+    void *mem = shm_map (ring_name, size);
+    prepare_shm_ring (mem);
+
+    return shm_alloc_pipe (mem);
 }
 
 #endif

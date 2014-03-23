@@ -89,6 +89,7 @@ namespace zmq
 				int fd;
 				int shm_buffer_size;
 				char conn_path[HS_MAX_RING_NAME];
+				char mailbox_name[HS_MAX_RING_NAME];
 			};
 
 			/* The file descriptor of the remote mailbox */
@@ -96,6 +97,12 @@ namespace zmq
 
 			/* The file descriptor of the socket's mailbox */
 			fd_t local_mailfd;
+
+			/* The file descriptor of the remote mailbox */
+			shm_path_t &remote_mailbox_name;
+
+			/* The file descriptor of the socket's mailbox */
+			shm_path_t &local_mailbox_name;
 
 			/* Our local unix domain socket */
 			fd_t local_sockfd;

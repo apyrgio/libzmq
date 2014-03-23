@@ -17,152 +17,68 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __ZMQ_SHM_YPIPE_HPP_INCLUDED__
-#define __ZMQ_SHM_YPIPE_HPP_INCLUDED__
+#ifndef __ZMQ_MAILBOX_HPP_INCLUDED__
+#define __ZMQ_MAILBOX_HPP_INCLUDED__
 
-#include "atomic_ptr.hpp"
+#include <stddef.h>
+
 #include "platform.hpp"
-#include "ypipe_base.hpp"
-#include "shm_yqueue.hpp"
-#include <iostream>
+#include "signaler.hpp"
+#include "fd.hpp"
+#include "config.hpp"
+#include "command.hpp"
+#include "ypipe.hpp"
+#include "mutex.hpp"
+#include "shm_utils.hpp"
 
 namespace zmq
 {
 
-    //  Lock-free, shared-memory queue implementation.
-    //  Only a single thread can read from the pipe at any specific moment.
-    //  Only a single thread can write to the pipe at any specific moment.
-    //  T is the type of the object in the queue.
-    //  N is granularity of the pipe, i.e. how many items are needed to
-    //  perform next memory allocation.
-
-    template <typename T, int N> class shm_ypipe_t : public ypipe_base_t <T>
+    class mailbox_t
     {
     public:
 
-        //  Creates the queue.
-        inline shm_ypipe_t (void *ptr)
-        {
-			queue =	new (std::nothrow) shm_yqueue_t <T, N> (ptr);
-			alloc_assert (queue);
-			ctrl = (struct ctrl_block_t *)ptr;
-        }
+        mailbox_t ();
+        ~mailbox_t ();
 
-        //  The destructor doesn't have to be virtual. It is mad virtual
-        //  just to keep ICC and code checking tools from complaining.
-        inline virtual ~shm_ypipe_t ()
-        {
-        }
+        fd_t get_fd ();
+        void send (const command_t &cmd_);
+        int recv (command_t *cmd_, int timeout_);
 
-        //  Following function (write) deliberately copies uninitialised data
-        //  when used with zmq_msg. Initialising the VSM body for
-        //  non-VSM messages won't be good for performance.
+        typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
+        shm_cpipe_t *get_shm_cpipe ();
+        void set_shm_cpipe (shm_cpipe_t *shm_cpipe);
 
-#ifdef ZMQ_HAVE_OPENVMS
-#pragma message save
-#pragma message disable(UNINIT)
+#ifdef HAVE_FORK
+        // close the file descriptors in the signaller. This is used in a forked
+        // child process to close the file descriptors so that they do not interfere
+        // with the context in the parent process.
+        void forked() { signaler.forked(); }
 #endif
 
-        //  Write an item to the pipe.  Don't flush it yet. If incomplete is
-        //  set to true the item is assumed to be continued by items
-        //  subsequently written to the pipe. Incomplete items are never
-        //  flushed down the stream.
-        inline void write (const T &value_, bool incomplete_)
-        {
-            //  Place the value to the queue, add new terminator element.
-			std::cout << "ypipe: Before write, queue : " << queue << "\n";
-			alloc_assert (queue);
-            queue->back () = value_;
-			std::cout << "ypipe: Middle\n";
-            queue->push ();
-			std::cout << "ypipe: After write\n";
+    private:
 
-			if (!incomplete_)
-				queue->flush ();
-        }
+        //  The pipe to store actual commands.
+        typedef ypipe_t <command_t, command_pipe_granularity> cpipe_t;
+        cpipe_t cpipe;
+        shm_cpipe_t *shm_cpipe;
 
-#ifdef ZMQ_HAVE_OPENVMS
-#pragma message restore
-#endif
+        //  Signaler to pass signals from writer thread to reader thread.
+        signaler_t signaler;
 
-        //  Pop an incomplete item from the pipe. Returns true is such
-        //  item exists, false otherwise.
-        inline bool unwrite (T *value_)
-        {
-			// FIXME
-			if (queue->unpush ())
-				return false;
+        //  There's only one thread receiving from the mailbox, but there
+        //  is arbitrary number of threads sending. Given that ypipe requires
+        //  synchronised access on both of its endpoints, we have to synchronise
+        //  the sending side.
+        mutex_t sync;
 
-			*value_ =  queue->back ();
-			return true;
-        }
+        //  True if the underlying pipe is active, ie. when we are allowed to
+        //  read commands from it.
+        bool active;
 
-        //  Flush all the completed items into the pipe. Returns false if
-        //  the reader thread is sleeping or otherwise needs to be signalled
-        //  to take notice of the pipe. In that case, caller is obliged to
-        //  wake the reader up before using the pipe again.
-        inline bool flush ()
-        {
-			queue->flush ();
-
-            if (must_signal) {
-                must_signal = false;
-                return false;
-            }
-
-			return true;
-        }
-
-        //  Check whether item is available for reading.
-        inline bool check_read ()
-        {
-			return queue->check_pop ();
-
-        }
-
-        //  Reads an item from the pipe. Returns false if there is no value.
-        //  available.
-        inline bool read (T *value_)
-        {
-			if (!queue->check_pop ())
-                ctrl->must_signal = true;
-				return false;
-
-            queue->pop ();
-            *value_ = queue->front ();
-
-            return true;
-        }
-
-        //  Applies the function fn to the first elemenent in the pipe
-        //  and returns the value returned by the fn.
-        //  The pipe mustn't be empty or the function crashes.
-        inline bool probe (bool (*fn)(const T &))
-        {
-			bool rc = check_read ();
-			zmq_assert (rc);
-
-			return (*fn) (queue->peek ());
-        }
-
-		inline void mark_inactive ()
-		{
-			// Work your magic
-		}
-
-    protected:
-        // A control block where the must_signal flag is stored
-        struct ctrl_block_t *ctrl;
-
-        //  Allocation-efficient queue to store pipe items.
-        //  Front of the queue points to the first prefetched item, back of
-        //  the pipe points to last un-flushed item. Front is used only by
-        //  reader thread, while back is used only by writer thread.
-        shm_yqueue_t <T, N> *queue;
-
-        //  Disable copying of shm_ypipe object.
-        shm_ypipe_t (const shm_ypipe_t&);
-        const shm_ypipe_t &operator = (const shm_ypipe_t&);
+        //  Disable copying of mailbox_t object.
+        mailbox_t (const mailbox_t&);
+        const mailbox_t &operator = (const mailbox_t&);
     };
 
 }

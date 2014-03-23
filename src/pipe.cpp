@@ -257,6 +257,7 @@ void zmq::pipe_t::flush ()
 
     if (outpipe && !outpipe->flush ())
         send_activate_read (peer);
+    // We need a way to signal the remote mailbox here.
 }
 
 void zmq::pipe_t::process_activate_read ()

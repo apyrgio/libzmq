@@ -34,6 +34,7 @@
 #include "shm_ypipe.hpp"
 #include "shm_yqueue.hpp"
 #include "session_base.hpp"
+#include "shm_utils.hpp"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -43,7 +44,8 @@
 #include <sys/un.h>
 #include <fcntl.h>
 
-
+// TODO: Differentiate between connecter and listener by something other than
+// addr.
 zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
         zmq::socket_base_t *socket_, const options_t &options_,
         std::string addr_) :
@@ -55,7 +57,8 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
     conn_state (SHM_IPC_STATE_SEND_SYN)
 {
     std::cout<<"Constructing the connection for connecter\n";
-    local_mailfd = socket->get_mailbox()->get_fd();
+    get_mailbox_info();
+    create_ring ();
     connect_syn ();
 }
 
@@ -69,10 +72,19 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
     conn_state (SHM_IPC_STATE_EXPECT_SYN)
 {
     std::cout<<"Constructing the connection for listener\n";
+    get_mailbox_info();
 }
 
 zmq::shm_ipc_connection_t::~shm_ipc_connection_t ()
 {
+}
+
+void zmq::shm_ipc_connection_t::get_mailbox_info()
+{
+    mailbox_t *m = socket->get_mailbox();
+    local_mailfd = m->get_fd();
+    shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
+    local_mailbox_name = shm_cpipe->get_name ();
 }
 
 void zmq::shm_ipc_connection_t::timer_event (int id_)
@@ -290,7 +302,9 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
     shm_buffer_size = hs_msg->buffer_size;
     strncpy(ring_name, hs_msg->conn_path, HS_MAX_RING_NAME);
     std::cout << "handle_syn: Ring name: " << ring_name << "\n";
-    create_connection ();
+    create_ring (ring_name);
+
+    strncpy(remote_mailbox_name, hs_msg->mailbox_name, HS_MAX_PATH_NAME);
     conn_state = SHM_IPC_STATE_SEND_SYNACK;
 
     free_hs_msg(hs_msg);
@@ -320,7 +334,8 @@ int zmq::shm_ipc_connection_t::handle_synack_msg()
     store_remote_eventfd(conn, hs_msg->fd);
     /* TODO: map_connection_path */
 #endif
-    remote_evfd = hs_msg->fd;
+    remote_mailfd = hs_msg->fd;
+    strncpy(remote_mailbox_name, hs_msg->mailbox_name, HS_MAX_PATH_NAME);
     conn_state = SHM_IPC_STATE_SEND_ACK;
 
     free_hs_msg(hs_msg);
@@ -373,20 +388,9 @@ void zmq::shm_ipc_connection_t::init_conn ()
     std::cout << "In init_conn of connection\n";
 }
 
-int zmq::shm_ipc_connection_t::create_connection ()
+int zmq::shm_ipc_connection_t::create_ring (shm_path_t *ring_name = NULL)
 {
-    if (conn_type == SHM_IPC_CONNECTER)
-        alloc_conn();
-
-    init_conn();
-    void *mem = map_conn ();
-    std::cout << "Mem: " << mem << "\n";
-
-    if (conn_type == SHM_IPC_CONNECTER)
-        prepare_shm_pipe (mem);
-
-    pipe_t *pipe = alloc_shm_pipe (mem);
-
+    pipe_t *pipe = shm_create_ring(ring_name)
     send_bind (socket, pipe, false);
 
     /*
@@ -644,7 +648,7 @@ struct msghdr * zmq::shm_ipc_connection_t::__create_msg(int flag)
     }
 
     if (flag & HS_INCLUDE_CONTROL_DATA) {
-        fd = local_evfd;
+        fd = local_mailfd;
         set_control_data(msg, fd);
     }
 
@@ -664,7 +668,8 @@ struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg()
     hs_msg = __get_hs_msg(msg);
     hs_msg->phase = HS_MSG_SYN;
     hs_msg->shm_buffer_size = shm_buffer_size;
-    strncpy(hs_msg->conn_path, ring_name, HS_MAX_RING_NAME);
+    strncpy(hs_msg->ring_name, ring_name, HS_MAX_RING_NAME);
+    strncpy(hs_msg->mailbox_name, local_mailbox_name, HS_MAX_RING_NAME);
 
     return msg;
 }
@@ -681,8 +686,7 @@ struct msghdr *zmq::shm_ipc_connection_t::create_synack_msg()
 
     hs_msg = __get_hs_msg(msg);
     hs_msg->phase = HS_MSG_SYNACK;
-    hs
-
+    strncpy(hs_msg->mailbox_name, local_mailbox_name, HS_MAX_RING_NAME);
 
     return msg;
 }

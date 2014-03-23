@@ -92,6 +92,11 @@ zmq::signaler_t::signaler_t ()
 #endif
 }
 
+zmq::signaler_t::signaler_t (int fd)
+{
+    // TODO: Write sth
+}
+
 zmq::signaler_t::~signaler_t ()
 {
 #if defined ZMQ_HAVE_EVENTFD

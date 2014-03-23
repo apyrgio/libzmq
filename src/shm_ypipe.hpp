@@ -85,6 +85,10 @@ namespace zmq
 #pragma message save
 #pragma message disable(UNINIT)
 #endif
+        inline shm_path_t &get_name ()
+        {
+
+        }
 
         //  Write an item to the pipe.  Don't flush it yet. If incomplete is
         //  set to true the item is assumed to be continued by items
