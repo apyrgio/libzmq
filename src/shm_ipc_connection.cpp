@@ -79,12 +79,14 @@ zmq::shm_ipc_connection_t::~shm_ipc_connection_t ()
 {
 }
 
+// This function gets the file descriptor and name of a mailbox and stores them
+// in the connection variables.
 void zmq::shm_ipc_connection_t::get_mailbox_info()
 {
-    mailbox_t *m = socket->get_mailbox();
-    local_mailfd = m->get_fd();
+    mailbox_t *m = socket->get_mailbox ();
+    local_mailfd = m->get_fd ();
     shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
-    local_mailbox_name = shm_cpipe->get_name ();
+    local_mailbox_name = shm_cpipe.name;
 }
 
 void zmq::shm_ipc_connection_t::timer_event (int id_)

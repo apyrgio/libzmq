@@ -55,6 +55,7 @@
 #include "address.hpp"
 #include "ipc_address.hpp"
 #include "shm_ipc_address.hpp"
+#include "shm_utils.hpp"
 #include "tcp_address.hpp"
 #include "tipc_address.hpp"
 #ifdef ZMQ_HAVE_OPENPGM
@@ -161,7 +162,7 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
 void zmq::socket_base_t::create_shm_mailbox ()
 {
     mailbox_t *m = get_mailbox ();
-    shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
+    zmq::shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
 
     if (shm_cpipe) {
 		return;
@@ -430,6 +431,10 @@ int zmq::socket_base_t::bind (const char *addr_)
             return -1;
         }
 
+        // Create an shm mailbox to allow connected sockets to communicate
+        // with it.
+        create_shm_mailbox();
+
         // Save last endpoint URI
         listener->get_address (last_endpoint);
 
@@ -631,11 +636,6 @@ int zmq::socket_base_t::connect (const char *addr_)
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
     else
     if (protocol == "shm_ipc") {
-        int rc = create_shm_mailbox ();
-        if (rc != 0) {
-            return -1;
-        }
-
         paddr->resolved.shm_ipc_addr = new (std::nothrow) shm_ipc_address_t ();
         alloc_assert (paddr->resolved.shm_ipc_addr);
         rc = paddr->resolved.shm_ipc_addr->resolve (address.c_str ());
@@ -644,6 +644,7 @@ int zmq::socket_base_t::connect (const char *addr_)
             return -1;
         }
 
+        create_shm_mailbox ();
     }
 #endif
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS

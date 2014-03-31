@@ -40,41 +40,29 @@ namespace zmq
     template <typename T, int N> class shm_ypipe_t : public ypipe_base_t <T>
     {
     public:
-
         //  Creates the queue.
-        inline shm_ypipe_t ()
+        inline shm_ypipe_t (std::string path_, unsigned int offset = 0)
         {
-            int r;
-            unsigned int size = get_ypipe_size ();
+            unsigned int size = get_ring_size ();
 
-            do {
-                name = shm_generate_random_name ("pipe");
-                r = shm_allocate (name, size);
-            } while (r < 0);
+            path = path_;
+            void *mem = shm_map (path, size);
+            mem = (void *)((char *)mem + offset);
 
-            void *mem = shm_map (name, size);
-            prepare_shm_ypipe (mem);
+            prepare_shm_ypipe (mem, size);
 
 			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
 			alloc_assert (queue);
 			ctrl = (struct ctrl_block_t *)mem;
-        }
 
-        //  Maps the queue.
-        inline shm_ypipe_t (std::string name)
-        {
-            unsigned int size = get_ypipe_size ();
-            void *mem = shm_map (name, size);
-
-			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
-			alloc_assert (queue);
-			ctrl = (struct ctrl_block_t *)mem;
         }
 
         //  The destructor doesn't have to be virtual. It is mad virtual
         //  just to keep ICC and code checking tools from complaining.
         inline virtual ~shm_ypipe_t ()
         {
+            //  FIXME
+            shm_unmap((void *)ctrl);
         }
 
         //  Following function (write) deliberately copies uninitialised data
@@ -85,9 +73,9 @@ namespace zmq
 #pragma message save
 #pragma message disable(UNINIT)
 #endif
-        inline shm_path_t &get_name ()
+        inline std::string &get_name ()
         {
-
+            return path;
         }
 
         //  Write an item to the pipe.  Don't flush it yet. If incomplete is
@@ -97,12 +85,8 @@ namespace zmq
         inline void write (const T &value_, bool incomplete_)
         {
             //  Place the value to the queue, add new terminator element.
-			std::cout << "ypipe: Before write, queue : " << queue << "\n";
-			alloc_assert (queue);
             queue->back () = value_;
-			std::cout << "ypipe: Middle\n";
             queue->push ();
-			std::cout << "ypipe: After write\n";
 
 			if (!incomplete_)
 				queue->flush ();
@@ -177,6 +161,9 @@ namespace zmq
 			// Work your magic
 		}
 
+        //  The name of the pipe
+        std::string name;
+
     protected:
         // A control block where the must_signal flag is stored
         struct ctrl_block_t *ctrl;
@@ -186,9 +173,6 @@ namespace zmq
         //  the pipe points to last un-flushed item. Front is used only by
         //  reader thread, while back is used only by writer thread.
         shm_yqueue_t <T, N> *queue;
-
-        //  The name of the pipe
-        shm_path_t name;
 
         //  Disable copying of shm_ypipe object.
         shm_ypipe_t (const shm_ypipe_t&);

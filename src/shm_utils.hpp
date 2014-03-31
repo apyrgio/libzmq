@@ -23,12 +23,20 @@
 #define SHM_PATH "/dev/shm/zeromq/"
 #define SHM_PATH_LEN 64
 
+#include "shm_ypipe.hpp"
+#include "shm_ipc_connection.hpp"
+
 namespace zmq
 {
     typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
     typedef char[SHM_PATH_LEN] shm_path_t;
 
     unsigned int get_ypipe_size ();
+    shm_cpipe_t shm_create_cpipe ();
+    void *shm_map (std::string path, unsigned int size);
+    void shm_allocate(std::string path, unsigned int size);
+
+    enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
 }
 
 #endif

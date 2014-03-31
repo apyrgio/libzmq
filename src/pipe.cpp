@@ -26,6 +26,8 @@
 #include "ypipe.hpp"
 #include "ypipe_conflate.hpp"
 #include "shm_ypipe.hpp"
+#include "shm_ipc_connection.hpp"
+#include "shm_utils.hpp"
 
 int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
     int hwms_ [2], bool conflate_ [2])
@@ -65,23 +67,40 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 
 //   Creates two pipe objects. These objects are connected by two ypipes,
 //   each to pass messages in one direction.
+//   Since we need a way to distinguish between calls to this function in
+//   order to create pipes and their mirror counterparts, we will introduce the
+//   concept of CONNECTER and LISTENER.
 int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
-    int hwms_ [2], bool conflate_, void *ptrs_ [2])
+    int hwms_ [2], bool conflate_, std::string path, shm_pipe_t pipe_type)
 {
-    zmq_assert (conflate_== false);
     typedef shm_ypipe_t <msg_t, message_pipe_granularity> shm_upipe_normal_t;
 
-    pipe_t::upipe_t *shm_upipe1;
-    shm_upipe1 = new (std::nothrow) shm_upipe_normal_t (ptrs_[0], );
-    alloc_assert (shm_upipe1);
-    std::cout << "Pipe 1: " << shm_upipe1 << "\n";
+    unsigned int offset_in = 0;
+    unsigned int offset_out = 0;
+    int temp;
 
-    pipe_t::upipe_t *shm_upipe2;
-    shm_upipe2 = new (std::nothrow) shm_upipe_normal_t (ptrs_[1]);
-    alloc_assert (shm_upipe2);
-    std::cout << "Pipe 2: " << shm_upipe2 << "\n";
+    if (pipe_type == SHM_PIPE_CONNECTER) {
+        offset_out = get_ypipe_size ();
+    } else if (pipe_type == SHM_PIPE_LISTENER) {
+        offset_in = get_ypipe_size ();
+        temp = hwms_[0];
+        hwms_[0] = hwms_[1];
+        hwms_[1] = temp;
+    } else {
+        zmq_assert(false);
+    }
 
-    *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe1, shm_upipe2,
+    pipe_t::upipe_t *shm_upipe_in;
+    shm_upipe_in = new (std::nothrow) shm_upipe_normal_t (path, offset_in);
+    alloc_assert (shm_upipe_in);
+    std::cout << "Pipe 1: " << shm_upipe_in << "\n";
+
+    pipe_t::upipe_t *shm_upipe_out;
+    shm_upipe_out = new (std::nothrow) shm_upipe_normal_t (path, offset_out);
+    alloc_assert (shm_upipe_out);
+    std::cout << "Pipe 2: " << shm_upipe_out << "\n";
+
+    *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe_in, shm_upipe_out,
         hwms_ [1], hwms_ [0], conflate_);
     alloc_assert (shm_pipe_);
 

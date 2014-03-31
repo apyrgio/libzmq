@@ -46,23 +46,25 @@ shm_path_t &zmq::shm_generate_random_name (const char &prefix)
     return name;
 }
 
-void zmq::calculate_ring_size ()
+// FIXME: What if ZMQ_SHM_BUFER_SIZE changes in the meantime?
+unsigned int zmq::get_ring_size ()
 {
-    int opt_size = sizeof shm_buffer_size;
+    return 2 * get_ypipe_size ();
+}
+
+unsigned int zmq::get_ypipe_size()
+{
+    unsigned int opt_size = sizeof shm_buffer_size;
+    unsigned int size;
     int r;
 
     r = socket->getsockopt (ZMQ_SHM_BUFFER_SIZE, &shm_buffer_size, &opt_size);
     zmq_assert (r >= 0);
-}
-
-unsigned int zmq::get_ypipe_size(unsigned int bsize)
-{
-    unsigned int size;
 
     size = 0;
     size += sizeof(struct zmq::ctrl_block_t);
     size += message_pipe_granularity * sizeof(zmq::msg_t);
-    size += bsize;
+    size += shm_buffer_size;
 
     return size;
 }
@@ -83,9 +85,9 @@ unsigned int zmq::get_shm_size()
     return 2 * get_ring_size ();
 }
 
-zmq::pipe_t *zmq::shm_alloc_pipe (void *mem)
+zmq::pipe_t *zmq::shm_alloc_pipe (options_t *options, std::string path,
+        shm_pipe_t pipe_type)
 {
-    unsigned int size = get_ring_size ();
     bool conflate = options.conflate &&
         (options.type == ZMQ_DEALER ||
          options.type == ZMQ_PULL ||
@@ -93,26 +95,14 @@ zmq::pipe_t *zmq::shm_alloc_pipe (void *mem)
          options.type == ZMQ_PUB ||
          options.type == ZMQ_SUB);
 
-    void *mem1 = mem;
-    void *mem2 = (void *)((char *)mem + size);
     pipe_t *pipe;
     int r;
 
-    if (conn_type == SHM_IPC_CONNECTER) {
-        int hwms[2] = {conflate? -1 : options.rcvhwm,
-            conflate? -1 : options.sndhwm};
-        void *ptrs[2] = {mem1, mem2};
+    int hwms[2] = {conflate? -1 : options.rcvhwm,
+        conflate? -1 : options.sndhwm};
 
-        r = zmq::shm_pipe (socket, &pipe, hwms, conflate, ptrs);
-        zmq_assert (r >= 0);
-    } else {
-        int hwms[2] = {conflate? -1 : options.sndhwm,
-            conflate? -1 : options.rcvhwm};
-        void *ptrs[2] = {mem2, mem1};
-
-        r = zmq::shm_pipe (socket, &pipe, hwms, conflate, ptrs);
-        zmq_assert (r >= 0);
-    }
+    r = zmq::shm_pipe (socket, &pipe, hwms, conflate, path, pipe_type);
+    zmq_assert (r >= 0);
 
     return pipe;
 }
@@ -191,14 +181,14 @@ void *zmq::shm_map (char *name, unsigned int size)
     return mem;
 }
 
-shm_cpipe_t *zmq::shm_alloc_cpipe (void *mem)
+shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
 {
-    return new (std::nothrow) shm_cpipe_t (mem);
+    return new (std::nothrow) shm_cpipe_t (name);
 }
 
-shm_cpipe_t *zmq::shm_create_cpipe ()
+// FΙΧΜΕ: Add ability to create from a name
+shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
 {
-    shm_path_t name;
     int r;
 
     shm_mkdir ("zeromq");
@@ -206,18 +196,18 @@ shm_cpipe_t *zmq::shm_create_cpipe ()
 
     // If allocation fails due to a duplicate name, retry.
     // Note that this is uncommon, but we must handle it anyway.
-    do {
-        name = shm_generate_random_name ("cpipe");
-        r = shm_allocate (name, size);
-    } while (r < 0);
+    if (!pipe_name) {
+        do {
+            pipe_name = shm_generate_random_name ("cpipe");
+            r = shm_allocate (pipe_name, size);
+        } while (r < 0);
+    }
 
-    void *mem = shm_map (name, size);
-    prepare_shm_cpipe (name, mem);
-
-    return shm_alloc_cpipe (mem);
+    return shm_alloc_cpipe (pipe_name);
 }
 
-pipe_t *zmq::shm_create_ring (shm_path_t *ring_name = NULL)
+pipe_t *zmq::shm_create_ring (options_t *options, shm_path_t *ring_name,
+        shm_pipe_t pipe_type)
 {
     int r;
 
@@ -233,10 +223,7 @@ pipe_t *zmq::shm_create_ring (shm_path_t *ring_name = NULL)
         } while (r < 0);
     }
 
-    void *mem = shm_map (ring_name, size);
-    prepare_shm_ring (mem);
-
-    return shm_alloc_pipe (mem);
+    return shm_alloc_pipe (options, ring_name, pipe_type);
 }
 
 #endif
