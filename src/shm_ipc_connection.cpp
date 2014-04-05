@@ -85,7 +85,7 @@ void zmq::shm_ipc_connection_t::get_mailbox_info()
 {
     mailbox_t *m = socket->get_mailbox ();
     local_mailfd = m->get_fd ();
-    shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
+    shm_cpipe_t *shm_cpipe = m.shm_cpipe;
     local_mailbox_name = shm_cpipe.name;
 }
 
@@ -307,6 +307,7 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
     create_ring (ring_name);
 
     strncpy(remote_mailbox_name, hs_msg->mailbox_name, HS_MAX_PATH_NAME);
+    // FIXME: create mailbox
     conn_state = SHM_IPC_STATE_SEND_SYNACK;
 
     free_hs_msg(hs_msg);
@@ -392,7 +393,7 @@ void zmq::shm_ipc_connection_t::init_conn ()
 
 int zmq::shm_ipc_connection_t::create_ring (shm_path_t *ring_name = NULL)
 {
-    pipe_t *pipe = shm_create_ring(ring_name)
+    pipe_t *pipe = shm_create_ring (ring_name)
     send_bind (socket, pipe, false);
 
     /*
@@ -669,9 +670,10 @@ struct msghdr * zmq::shm_ipc_connection_t::create_syn_msg()
 
     hs_msg = __get_hs_msg(msg);
     hs_msg->phase = HS_MSG_SYN;
+    hs_msg->fd = local_mailfd;
     hs_msg->shm_buffer_size = shm_buffer_size;
-    strncpy(hs_msg->ring_name, ring_name, HS_MAX_RING_NAME);
-    strncpy(hs_msg->mailbox_name, local_mailbox_name, HS_MAX_RING_NAME);
+    strncpy(hs_msg->ring_name, ring_name.c_str(), HS_MAX_RING_NAME);
+    strncpy(hs_msg->mailbox_name, local_mailbox_name.c_str(), HS_MAX_RING_NAME);
 
     return msg;
 }
@@ -688,7 +690,8 @@ struct msghdr *zmq::shm_ipc_connection_t::create_synack_msg()
 
     hs_msg = __get_hs_msg(msg);
     hs_msg->phase = HS_MSG_SYNACK;
-    strncpy(hs_msg->mailbox_name, local_mailbox_name, HS_MAX_RING_NAME);
+    hs_msg->fd = local_mailfd;
+    strncpy(hs_msg->mailbox_name, local_mailbox_name.c_str(), HS_MAX_RING_NAME);
 
     return msg;
 }

@@ -44,10 +44,7 @@ namespace zmq
         fd_t get_fd ();
         void send (const command_t &cmd_);
         int recv (command_t *cmd_, int timeout_);
-
-        typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
-        shm_cpipe_t *get_shm_cpipe ();
-        void set_shm_cpipe (shm_cpipe_t *shm_cpipe);
+        shm_cpipe_t *shm_cpipe;
 
 #ifdef HAVE_FORK
         // close the file descriptors in the signaller. This is used in a forked
@@ -61,7 +58,6 @@ namespace zmq
         //  The pipe to store actual commands.
         typedef ypipe_t <command_t, command_pipe_granularity> cpipe_t;
         cpipe_t cpipe;
-        shm_cpipe_t *shm_mpipe;
 
         //  Signaler to pass signals from writer thread to reader thread.
         signaler_t signaler;

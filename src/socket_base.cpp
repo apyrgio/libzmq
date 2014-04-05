@@ -162,14 +162,13 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
 void zmq::socket_base_t::create_shm_mailbox ()
 {
     mailbox_t *m = get_mailbox ();
-    zmq::shm_cpipe_t *shm_cpipe = m->get_shm_cpipe ();
+    zmq::shm_cpipe_t *shm_cpipe = m.shm_cpipe ();
 
     if (shm_cpipe) {
 		return;
     }
 
-    shm_cpipe = shm_create_cpipe ();
-	m->set_shm_cpipe ();
+    m.shm_cpipe = shm_create_cpipe ();
 }
 
 void zmq::socket_base_t::stop ()

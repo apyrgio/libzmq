@@ -95,14 +95,17 @@ namespace zmq
 			/* The file descriptor of the remote mailbox */
 			fd_t remote_mailfd;
 
-			/* The file descriptor of the socket's mailbox */
+			/* The file descriptor of the local mailbox */
 			fd_t local_mailfd;
 
-			/* The file descriptor of the remote mailbox */
-			shm_path_t &remote_mailbox_name;
+			/* The name of the remote mailbox */
+            std::string remote_mailbox_name;
 
-			/* The file descriptor of the socket's mailbox */
-			shm_path_t &local_mailbox_name;
+			/* The name of the local mailbox */
+            std::string local_mailbox_name;
+
+			/* The name of the shared memory ring */
+            std::string ring_name;
 
 			/* Our local unix domain socket */
 			fd_t local_sockfd;
@@ -163,9 +166,6 @@ namespace zmq
 			int handle_syn_msg();
 			int handle_synack_msg();
 			int handle_ack_msg();
-
-			// The name of the ring, under /dev/shm
-			char ring_name[HS_MAX_RING_NAME];
 
 			// Size of extra buffers (inbound/outbound) for non-VSM messages
 			unsigned int shm_buffer_size;
