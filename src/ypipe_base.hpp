@@ -38,8 +38,8 @@ namespace zmq
         virtual bool check_read () = 0;
         virtual bool read (T *value_) = 0;
         virtual bool probe (bool (*fn)(const T &)) = 0;
-		virtual void mark_inactive () = 0;
-		virtual void mark_active () = 0;
+		virtual void mark_inactive ();
+		virtual void mark_active ();
     };
 }
 

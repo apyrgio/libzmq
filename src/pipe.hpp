@@ -27,6 +27,7 @@
 #include "stdint.hpp"
 #include "array.hpp"
 #include "blob.hpp"
+#include "shm_mpipe.hpp"
 
 namespace zmq
 {

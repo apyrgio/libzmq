@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <iostream>
 
 #include "err.hpp"
 #include "atomic_ptr.hpp"
@@ -59,8 +60,8 @@ namespace zmq
         {
              ctrl = (struct ctrl_block_t *)ptr;
              if (!ctrl->initialized) {
-                 ctrl->msg_head = ctrl->msg_unflushed = ctrl->buf_head = 0;
-                 ctrl->msg_tail = ctrl->buf->tail = 1;
+                 ctrl->head = ctrl->unflushed = 0;
+                 ctrl->tail = 1;
                  ctrl->initialized = 1134;
              }
 
@@ -82,7 +83,7 @@ namespace zmq
         //  If the queue is empty, behaviour is undefined.
         inline T &front ()
         {
-             return msg[ctrl->msg_head];
+             return msg[ctrl->head];
         }
 
         //  Returns reference to the back element of the queue.
@@ -90,7 +91,7 @@ namespace zmq
         inline T &back ()
         {
             std::cout << "Tail is " << ctrl->tail << "\n";
-            return msg[ctrl->msg_tail];
+            return msg[ctrl->tail];
         }
 
         // Check if we can push a new element.

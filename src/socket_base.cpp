@@ -261,7 +261,7 @@ void zmq::socket_base_t::attach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
     //  First, register the pipe so that we can terminate it later on.
     pipe_->set_event_sink (this);
     pipes.push_back (pipe_);
-    
+
     //  Let the derived socket type know about new pipe.
     xattach_pipe (pipe_, subscribe_to_all_);
 
@@ -430,8 +430,8 @@ int zmq::socket_base_t::bind (const char *addr_)
             return -1;
         }
 
-        // Create an shm mailbox to allow connected sockets to communicate
-        // with it.
+        // Create an shm mailbox to allow connected sockets to send commands to
+        // it.
         create_shm_mailbox();
 
         // Save last endpoint URI
@@ -776,7 +776,7 @@ int zmq::socket_base_t::term_endpoint (const char *addr_)
             errno = ENOENT;
             return -1;
         }
-    
+
         for (inprocs_t::iterator it = range.first; it != range.second; ++it)
             it->second->terminate(true);
         inprocs.erase (range.first, range.second);
@@ -963,7 +963,7 @@ int zmq::socket_base_t::close ()
 {
     //  Mark the socket as dead
     tag = 0xdeadbeef;
-    
+
     //  Transfer the ownership of the socket from this application thread
     //  to the reaper thread which will take care of the rest of shutdown
     //  process.
@@ -1205,7 +1205,7 @@ void zmq::socket_base_t::pipe_terminated (pipe_t *pipe_)
             inprocs.erase(it);
             break;
         }
-    }    
+    }
 
     //  Remove the pipe from the list of attached pipes and confirm its
     //  termination if we are already shutting down.
@@ -1219,7 +1219,7 @@ void zmq::socket_base_t::extract_flags (msg_t *msg_)
     //  Test whether IDENTITY flag is valid for this socket type.
     if (unlikely (msg_->flags () & msg_t::identity))
         zmq_assert (options.recv_identity);
-  
+
     //  Remove MORE flag.
     rcvmore = msg_->flags () & msg_t::more ? true : false;
 }
@@ -1364,7 +1364,7 @@ void zmq::socket_base_t::event_closed (std::string &addr_, int fd_)
         monitor_event (event, addr_);
     }
 }
-        
+
 void zmq::socket_base_t::event_close_failed (std::string &addr_, int err_)
 {
     if (monitor_events & ZMQ_EVENT_CLOSE_FAILED) {

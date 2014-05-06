@@ -29,7 +29,7 @@
 #include "command.hpp"
 #include "ypipe.hpp"
 #include "mutex.hpp"
-#include "shm_utils.hpp"
+#include "shm_mpipe.hpp"
 
 namespace zmq
 {

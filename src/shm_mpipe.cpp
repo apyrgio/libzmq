@@ -17,7 +17,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "mailbox.hpp"
+#include "shm_utils.hpp"
+#include "shm_mpipe.hpp"
 #include "err.hpp"
 #include <iostream>
 
@@ -65,3 +66,29 @@ int zmq::shm_mpipe_t::recv (command_t *cmd_, int timeout_)
 {
     zmq_assert (false);
 }
+
+shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
+{
+    return new (std::nothrow) shm_cpipe_t (name);
+}
+
+shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
+{
+    int r;
+
+    shm_mkdir ("zeromq");
+    unsigned int size = get_cpipe_size ();
+
+    // If allocation fails due to a duplicate name, retry.
+    // Note that this is uncommon, but we must handle it anyway.
+    if (!pipe_name) {
+        do {
+            pipe_name = shm_generate_random_name ("cpipe");
+            r = shm_allocate (pipe_name, size);
+        } while (r < 0);
+    }
+
+    return shm_alloc_cpipe (pipe_name);
+}
+
+

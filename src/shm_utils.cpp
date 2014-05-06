@@ -52,7 +52,7 @@ unsigned int zmq::get_ring_size ()
     return 2 * get_ypipe_size ();
 }
 
-unsigned int zmq::get_ypipe_size()
+unsigned int zmq::get_ypipe_size ()
 {
     unsigned int opt_size = sizeof shm_buffer_size;
     unsigned int size;
@@ -78,11 +78,6 @@ unsigned int zmq::get_cpipe_size ()
     size += command_pipe_granularity * sizeof(zmq::command_t);
 
     return size;
-}
-
-unsigned int zmq::get_shm_size()
-{
-    return 2 * get_ring_size ();
 }
 
 zmq::pipe_t *zmq::shm_alloc_pipe (options_t *options, std::string path,
@@ -116,8 +111,7 @@ void zmq::__prepare_shm_pipe (shm_path_t &name, void *mem, unsigned int size)
     ctrl->name = name;
 }
 
-void zmq::prepare_shm_ring (void *mem,
-        unsigned int size)
+void zmq::prepare_shm_ring (void *mem, unsigned int size)
 {
     unsigned int size = get_ypipe_size ();
     void *mem1 = mem;
@@ -149,7 +143,7 @@ shm_path_t &__shm_create_path_name(char *name)
 
 // Create a file in shared memory using the provided name and size.
 // If a file with the same name exists, return -1 else abort.
-int *zmq::shm_allocate (char *name, unsigned int size)
+int zmq::shm_allocate (char *name, unsigned int size)
 {
     int fd, r;
     shm_path_t path_name = __shm_create_path_name(name);
@@ -179,31 +173,6 @@ void *zmq::shm_map (char *name, unsigned int size)
 
     close(fd);
     return mem;
-}
-
-shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
-{
-    return new (std::nothrow) shm_cpipe_t (name);
-}
-
-// FΙΧΜΕ: Add ability to create from a name
-shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
-{
-    int r;
-
-    shm_mkdir ("zeromq");
-    unsigned int size = get_cpipe_size ();
-
-    // If allocation fails due to a duplicate name, retry.
-    // Note that this is uncommon, but we must handle it anyway.
-    if (!pipe_name) {
-        do {
-            pipe_name = shm_generate_random_name ("cpipe");
-            r = shm_allocate (pipe_name, size);
-        } while (r < 0);
-    }
-
-    return shm_alloc_cpipe (pipe_name);
 }
 
 pipe_t *zmq::shm_create_ring (options_t *options, shm_path_t *ring_name,

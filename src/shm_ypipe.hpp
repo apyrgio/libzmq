@@ -20,15 +20,20 @@
 #ifndef __ZMQ_SHM_YPIPE_HPP_INCLUDED__
 #define __ZMQ_SHM_YPIPE_HPP_INCLUDED__
 
+#include "shm_utils.hpp"
 #include "atomic_ptr.hpp"
 #include "platform.hpp"
 #include "ypipe_base.hpp"
 #include "shm_yqueue.hpp"
-#include "shm_utils.hpp"
 #include <iostream>
 
 namespace zmq
 {
+
+    // These functions also need to be declared here, due to ADL
+    // FIXME: The inclusion strategy is borked up.
+    unsigned int get_ypipe_size ();
+    void *shm_map (std::string path, unsigned int size);
 
     //  Lock-free, shared-memory queue implementation.
     //  Only a single thread can read from the pipe at any specific moment.
@@ -36,20 +41,19 @@ namespace zmq
     //  T is the type of the object in the queue.
     //  N is granularity of the pipe, i.e. how many items are needed to
     //  perform next memory allocation.
-
     template <typename T, int N> class shm_ypipe_t : public ypipe_base_t <T>
     {
     public:
         //  Creates the queue.
         inline shm_ypipe_t (std::string path_, unsigned int offset = 0)
         {
-            unsigned int size = get_ring_size ();
+            unsigned int size = get_ypipe_size ();
 
             path = path_;
             void *mem = shm_map (path, size);
             mem = (void *)((char *)mem + offset);
 
-            prepare_shm_ypipe (mem, size);
+            //prepare_shm_ring (mem, size);
 
 			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
 			alloc_assert (queue);
@@ -62,7 +66,7 @@ namespace zmq
         inline virtual ~shm_ypipe_t ()
         {
             //  FIXME
-            shm_unmap((void *)ctrl);
+            //shm_unmap((void *)ctrl);
         }
 
         //  Following function (write) deliberately copies uninitialised data
@@ -116,8 +120,8 @@ namespace zmq
         {
 			queue->flush ();
 
-            if (must_signal) {
-                must_signal = false;
+            if (ctrl->must_signal) {
+                ctrl->must_signal = false;
                 return false;
             }
 
@@ -165,6 +169,9 @@ namespace zmq
         std::string name;
 
     protected:
+        // The shared memory path thatt this pipe corresponds to.
+        std::string path;
+
         // A control block where the must_signal flag is stored
         struct ctrl_block_t *ctrl;
 

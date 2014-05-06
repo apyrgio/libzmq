@@ -17,26 +17,31 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef __ZMQ_SHM_UTILS_HPP_INCLUDED__
+#define __ZMQ_SHM_UTILS_HPP_INCLUDED__
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
 #define SHM_PATH "/dev/shm/zeromq/"
 #define SHM_PATH_LEN 64
 
-#include "shm_ypipe.hpp"
-#include "shm_ipc_connection.hpp"
-
 namespace zmq
 {
-    typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
-    typedef char[SHM_PATH_LEN] shm_path_t;
-
+    // Pipe-related functions
+    pipe_t shm_create_ring ();
+    int shm_allocate(std::string path, unsigned int size);
     unsigned int get_ypipe_size ();
-    shm_cpipe_t shm_create_cpipe ();
+    unsigned int get_ring_size ();
+    unsigned int get_cpipe_size ();
+    void prepare_shm_ring (void *mem, unsigned int size);
+    void prepare_shm_cpipe (void *mem, unsigned int size);
+
+    // Shm* high-level functions
+    void shm_mkdir (const char &name);
     void *shm_map (std::string path, unsigned int size);
-    void shm_allocate(std::string path, unsigned int size);
 
     enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
 }
 
+#endif
 #endif
