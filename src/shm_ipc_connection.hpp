@@ -129,6 +129,8 @@ namespace zmq
 
 		private:
 
+            void get_mailbox_info();
+            int create_ring (std::string ring_name = NULL);
 			void generate_ring_name();
 			unsigned int get_ring_size();
 			unsigned int get_shm_size();

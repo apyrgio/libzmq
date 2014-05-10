@@ -35,6 +35,7 @@
 #include "shm_yqueue.hpp"
 #include "session_base.hpp"
 #include "shm_utils.hpp"
+#include "shm_mpipe.hpp"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -85,8 +86,8 @@ void zmq::shm_ipc_connection_t::get_mailbox_info()
 {
     mailbox_t *m = socket->get_mailbox ();
     local_mailfd = m->get_fd ();
-    shm_cpipe_t *shm_cpipe = m.shm_cpipe;
-    local_mailbox_name = shm_cpipe.name;
+    shm_cpipe_t *shm_cpipe = m->shm_cpipe;
+    local_mailbox_name = shm_cpipe->name;
 }
 
 void zmq::shm_ipc_connection_t::timer_event (int id_)
@@ -104,128 +105,6 @@ char *zmq::shm_ipc_connection_t::get_ring_name ()
     return ring_name;
 }
 #endif
-
-// This function also creates a directory in shared memory
-// FIXME: Create a proper, unique name.
-void zmq::shm_ipc_connection_t::generate_ring_name ()
-{
-    int fd = mkdir("/dev/shm/zeromq", 0600);
-    close (fd);
-    snprintf(ring_name, HS_MAX_RING_NAME, "/zeromq/%s", "todo");
-}
-
-void zmq::shm_ipc_connection_t::calculate_ring_size ()
-{
-    int opt_size = sizeof shm_buffer_size;
-    int r;
-
-    r = socket->getsockopt (ZMQ_SHM_BUFFER_SIZE, &shm_buffer_size, &opt_size);
-    zmq_assert (r >= 0);
-}
-
-unsigned int zmq::shm_ipc_connection_t::get_ring_size()
-{
-    unsigned int size;
-
-    size = 0;
-    size += sizeof(struct zmq::ctrl_block_t);
-    size += message_pipe_granularity * sizeof(zmq::msg_t);
-    size += shm_buffer_size;
-
-    return size;
-}
-
-unsigned int zmq::shm_ipc_connection_t::get_cpipe_size()
-{
-    unsigned int size;
-
-    size = 0;
-    size += sizeof(struct zmq::ctrl_block_t);
-    size += command_pipe_granularity * sizeof(zmq::command_t);
-
-    return size;
-}
-
-unsigned int zmq::shm_ipc_connection_t::get_shm_size()
-{
-    return 2 * get_ring_size ();
-}
-
-zmq::pipe_t *zmq::shm_ipc_connection_t::alloc_shm_pipe (void *mem)
-{
-    unsigned int size = get_ring_size ();
-    bool conflate = options.conflate &&
-        (options.type == ZMQ_DEALER ||
-         options.type == ZMQ_PULL ||
-         options.type == ZMQ_PUSH ||
-         options.type == ZMQ_PUB ||
-         options.type == ZMQ_SUB);
-
-    void *mem1 = mem;
-    void *mem2 = (void *)((char *)mem + size);
-    pipe_t *pipe;
-    int r;
-
-    if (conn_type == SHM_IPC_CONNECTER) {
-        int hwms[2] = {conflate? -1 : options.rcvhwm,
-            conflate? -1 : options.sndhwm};
-        void *ptrs[2] = {mem1, mem2};
-
-        r = zmq::shm_pipe (socket, &pipe, hwms, conflate, ptrs);
-        zmq_assert (r >= 0);
-    } else {
-        int hwms[2] = {conflate? -1 : options.sndhwm,
-            conflate? -1 : options.rcvhwm};
-        void *ptrs[2] = {mem2, mem1};
-
-        r = zmq::shm_pipe (socket, &pipe, hwms, conflate, ptrs);
-        zmq_assert (r >= 0);
-    }
-
-    return pipe;
-}
-
-void zmq::shm_ipc_connection_t::prepare_shm_pipe (void *mem)
-{
-    struct ctrl_block_t *ctrl;
-    unsigned int size = get_ring_size ();
-    void *mem1 = mem;
-    void *mem2 = (void *)((char *)mem + size);
-
-    ctrl1 = (struct ctrl_block_t *)mem1;
-    ctrl2 = (struct ctrl_block_t *)mem2;
-    ctrl1->initialized = ctrl2->initialized = 0;
-    ctrl1->shm_buffer_size = ctrl2->shm_buffer_size = shm_buffer_size;
-}
-
-void *zmq::shm_ipc_connection_t::shm_allocate (char *name, unsigned int size)
-{
-    int fd, r;
-
-    errno = 0;
-    fd = shm_open(name, O_RDWR|O_CREAT|O_EXCL, 0600);
-    std::cout << "alloc_conn: Ring name: " << name << " errno "
-        << strerror(errno) << "\n";
-    zmq_assert (fd >= 0);
-
-    r = ftruncate(fd, size - 1);
-    zmq_assert (r >= 0);
-
-    close(fd);
-    return 0;
-}
-
-void *zmq::shm_ipc_connection_t::shm_map (unsigned int size)
-{
-    int fd = shm_open(ring_name, O_RDWR, 0600);
-    zmq_assert (fd >= 0);
-
-    void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    zmq_assert (mem != MAP_FAILED);
-
-    close(fd);
-    return mem;
-}
 
 void zmq::shm_ipc_connection_t::in_event ()
 {
@@ -300,13 +179,13 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
         return r;
     }
 #endif
-    remote_evfd = hs_msg->fd;
-    shm_buffer_size = hs_msg->buffer_size;
-    strncpy(ring_name, hs_msg->conn_path, HS_MAX_RING_NAME);
+    remote_mailfd = hs_msg->fd;
+    //shm_buffer_size = hs_msg->buffer_size;
+    ring_name = hs_msg->conn_path;
     std::cout << "handle_syn: Ring name: " << ring_name << "\n";
     create_ring (ring_name);
 
-    strncpy(remote_mailbox_name, hs_msg->mailbox_name, HS_MAX_PATH_NAME);
+    remote_mailbox_name = hs_msg->mailbox_name;
     // FIXME: create mailbox
     conn_state = SHM_IPC_STATE_SEND_SYNACK;
 
@@ -338,7 +217,7 @@ int zmq::shm_ipc_connection_t::handle_synack_msg()
     /* TODO: map_connection_path */
 #endif
     remote_mailfd = hs_msg->fd;
-    strncpy(remote_mailbox_name, hs_msg->mailbox_name, HS_MAX_PATH_NAME);
+    remote_mailbox_name = hs_msg->mailbox_name;
     conn_state = SHM_IPC_STATE_SEND_ACK;
 
     free_hs_msg(hs_msg);
@@ -369,29 +248,12 @@ void *zmq::shm_ipc_connection_t::map_conn ()
     return shm_map (size);
 }
 
-void zmq::shm_ipc_connection_t::alloc_conn ()
-{
-    std::cout << "In alloc_conn of connection\n";
-
-    calculate_ring_size ();
-    unsigned int size = get_shm_size ();
-    shm_allocate(size);
-}
-
-void zmq::shm_ipc_connection_t::alloc_cpipe ()
-{
-    std::cout << "In alloc_conn of connection\n";
-
-    unsigned int size = get_cpipe_size ();
-    shm_allocate(size);
-}
-
 void zmq::shm_ipc_connection_t::init_conn ()
 {
     std::cout << "In init_conn of connection\n";
 }
 
-int zmq::shm_ipc_connection_t::create_ring (shm_path_t *ring_name = NULL)
+int zmq::shm_ipc_connection_t::create_ring (std::string *ring_name = NULL)
 {
     pipe_t *pipe = shm_create_ring (ring_name)
     send_bind (socket, pipe, false);
