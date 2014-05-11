@@ -71,11 +71,13 @@ int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
 		std::cout << "Received mail, but no signal necessary\n";
 
         // Check the shm_cpipe first
-        if (shm_cpipe)
-            ok = shm_cpipe.read (cmd_);
-        else
-            ok = cpipe.read (cmd_);
+        if (shm_cpipe) {
+            ok = shm_cpipe->read (cmd_);
+            if (ok)
+                return 0;
+        }
 
+        ok = cpipe.read (cmd_);
         if (ok)
             return 0;
 
@@ -97,9 +99,9 @@ int zmq::mailbox_t::recv (command_t *cmd_, int timeout_)
     //  Get a command.
     errno_assert (rc == 0);
     if (shm_cpipe)
-        bool ok = shm_cpipe.read (cmd_);
+        ok = shm_cpipe->read (cmd_);
     else
-        bool ok = cpipe.read (cmd_);
+        ok = cpipe.read (cmd_);
     zmq_assert (ok);
     return 0;
 }

@@ -69,40 +69,6 @@ unsigned int zmq::get_ypipe_size ()
     return size;
 }
 
-unsigned int zmq::get_cpipe_size ()
-{
-    unsigned int size;
-
-    size = 0;
-    size += sizeof(struct zmq::ctrl_block_t);
-    size += command_pipe_granularity * sizeof(zmq::command_t);
-
-    return size;
-}
-
-zmq::pipe_t *zmq::shm_alloc_pipe (options_t *options, std::string path,
-        shm_pipe_t pipe_type)
-{
-    bool conflate = options.conflate &&
-        (options.type == ZMQ_DEALER ||
-         options.type == ZMQ_PULL ||
-         options.type == ZMQ_PUSH ||
-         options.type == ZMQ_PUB ||
-         options.type == ZMQ_SUB);
-
-    pipe_t *pipe;
-    int r;
-
-    int hwms[2] = {conflate? -1 : options.rcvhwm,
-        conflate? -1 : options.sndhwm};
-
-    r = zmq::shm_pipe (socket, &pipe, hwms, conflate, path, pipe_type);
-    zmq_assert (r >= 0);
-
-    return pipe;
-}
-
-
 void zmq::__prepare_shm_pipe (shm_path_t &name, void *mem, unsigned int size)
 {
     struct ctrl_block_t *ctrl = (struct ctrl_block_t *)mem;
@@ -173,26 +139,6 @@ void *zmq::shm_map (char *name, unsigned int size)
 
     close(fd);
     return mem;
-}
-
-pipe_t *zmq::shm_create_ring (options_t *options, shm_path_t *ring_name,
-        shm_pipe_t pipe_type)
-{
-    int r;
-
-    shm_mkdir ("zeromq");
-    unsigned int size = get_ring_size ();
-
-    if (!ring_name) {
-        // If allocation fails due to a duplicate name, retry.
-        // Note that this is uncommon, but we must handle it anyway.
-        do {
-            ring_name = shm_generate_random_name ("ring");
-            r = shm_allocate (ring_name, size);
-        } while (r < 0);
-    }
-
-    return shm_alloc_pipe (options, ring_name, pipe_type);
 }
 
 #endif

@@ -17,39 +17,24 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "shm_ipc_connecter.hpp"
+#ifndef __ZMQ_SHM_RING_HPP_INCLUDED__
+#define __ZMQ_SHM_RING_HPP_INCLUDED__
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
-#include <new>
-#include <string>
+#include "options.hpp"
+#include "pipe.hpp"
 
-#include "stream_engine.hpp"
-#include "io_thread.hpp"
-#include "platform.hpp"
-#include "random.hpp"
-#include "err.hpp"
-#include "ip.hpp"
-#include "address.hpp"
-#include "shm_ipc_address.hpp"
-#include "shm_ipc_connection.hpp"
-#include "shm_ipc_ring.hpp"
-
-#include "session_base.hpp"
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <iostream>
-
-zmq::shm_ipc_ring_t::shm_ipc_ring_t(class socket_base_t *socket_) :
-	socket (socket_)
+namespace zmq
 {
-	std::cout<<"Constructing the ring_t\n";
+    enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
+    unsigned int get_ring_size ();
+
+    pipe_t *shm_create_ring (options_t *options, std::string ring_name,
+            shm_pipe_t pipe_type);
+    pipe_t *shm_alloc_pipe (options_t *options, std::string path,
+            shm_pipe_t pipe_type);
 }
 
-zmq::shm_ipc_ring_t::~shm_ipc_ring_t ()
-{
-}
+#endif
 #endif

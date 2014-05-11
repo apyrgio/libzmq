@@ -55,7 +55,7 @@
 #include "address.hpp"
 #include "ipc_address.hpp"
 #include "shm_ipc_address.hpp"
-#include "shm_utils.hpp"
+#include "shm_mpipe.hpp"
 #include "tcp_address.hpp"
 #include "tipc_address.hpp"
 #ifdef ZMQ_HAVE_OPENPGM
@@ -159,16 +159,22 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
     return &mailbox;
 }
 
+/**
+ * Create a mailbox in shared memory where shm sockets can send commands to.
+ * Note that a new mailbox is not actually created. Mereyly, an shm command pipe
+ * is attached to the existing one.
+ */
 void zmq::socket_base_t::create_shm_mailbox ()
 {
     mailbox_t *m = get_mailbox ();
-    zmq::shm_cpipe_t *shm_cpipe = m.shm_cpipe ();
+    zmq::shm_cpipe_t *shm_cpipe = m->shm_cpipe;
 
     if (shm_cpipe) {
 		return;
     }
 
-    m.shm_cpipe = shm_create_cpipe ();
+    m->shm_cpipe = shm_create_cpipe ();
+    alloc_assert(m->shm_cpipe);
 }
 
 void zmq::socket_base_t::stop ()
@@ -692,8 +698,8 @@ int zmq::socket_base_t::connect (const char *addr_)
     bool subscribe_to_all = protocol == "pgm" || protocol == "epgm";
     pipe_t *newpipe = NULL;
 
-    if (protocol != "shm_ipc" &&
-            (options.immediate != 1 || subscribe_to_all)) {
+    if ((options.immediate != 1 || subscribe_to_all) &&
+            protocol != "shm_ipc" ) {
         //  Create a bi-directional pipe.
         object_t *parents [2] = {this, session};
         pipe_t *new_pipes [2] = {NULL, NULL};

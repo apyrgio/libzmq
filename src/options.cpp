@@ -54,7 +54,7 @@ zmq::options_t::options_t () :
     mechanism (ZMQ_NULL),
     as_server (0),
     socket_id (0),
-    conflate (false)
+    conflate (false),
 	shm_buffer_size (128 * 1024)
 {
 }

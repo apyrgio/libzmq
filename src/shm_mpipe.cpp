@@ -72,7 +72,18 @@ shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
     return new (std::nothrow) shm_cpipe_t (name);
 }
 
-shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
+unsigned int zmq::get_cpipe_size ()
+{
+    unsigned int size;
+
+    size = 0;
+    size += sizeof(struct zmq::ctrl_block_t);
+    size += command_pipe_granularity * sizeof(zmq::command_t);
+
+    return size;
+}
+
+shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name = "")
 {
     int r;
 
@@ -81,7 +92,7 @@ shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
 
     // If allocation fails due to a duplicate name, retry.
     // Note that this is uncommon, but we must handle it anyway.
-    if (!pipe_name) {
+    if (pipe_name == "") {
         do {
             pipe_name = shm_generate_random_name ("cpipe");
             r = shm_allocate (pipe_name, size);

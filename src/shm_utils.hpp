@@ -27,20 +27,14 @@
 
 namespace zmq
 {
-    // Pipe-related functions
-    pipe_t shm_create_ring ();
     int shm_allocate(std::string path, unsigned int size);
     unsigned int get_ypipe_size ();
-    unsigned int get_ring_size ();
-    unsigned int get_cpipe_size ();
     void prepare_shm_ring (void *mem, unsigned int size);
     void prepare_shm_cpipe (void *mem, unsigned int size);
 
     // Shm* high-level functions
     void shm_mkdir (const char &name);
     void *shm_map (std::string path, unsigned int size);
-
-    enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
 }
 
 #endif

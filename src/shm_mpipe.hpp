@@ -29,12 +29,16 @@
 #include "command.hpp"
 #include "shm_ypipe.hpp"
 #include "mutex.hpp"
-#include "shm_utils.hpp"
+//#include "shm_utils.hpp"
 
 namespace zmq
 {
     // The definition for shared memory command pipes
     typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
+
+    // A function for creating cpipes in shared memory. While normally part of
+    // shm_mpipe, it is exported for mailboxes that simply need an shm_cpipe.
+    shm_cpipe_t *shm_create_cpipe ();
 
     class shm_mpipe_t
     {
@@ -46,10 +50,6 @@ namespace zmq
         fd_t get_fd ();
         void send (const command_t &cmd_);
         int recv (command_t *cmd_, int timeout_);
-
-        typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
-        shm_cpipe_t *get_shm_cpipe ();
-        void set_shm_cpipe (shm_cpipe_t *shm_cpipe);
 
 #ifdef HAVE_FORK
         // close the file descriptors in the signaller. This is used in a forked

@@ -36,6 +36,7 @@
 #include "session_base.hpp"
 #include "shm_utils.hpp"
 #include "shm_mpipe.hpp"
+#include "shm_ring.hpp"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -87,7 +88,7 @@ void zmq::shm_ipc_connection_t::get_mailbox_info()
     mailbox_t *m = socket->get_mailbox ();
     local_mailfd = m->get_fd ();
     shm_cpipe_t *shm_cpipe = m->shm_cpipe;
-    local_mailbox_name = shm_cpipe->name;
+    local_mailbox_name = shm_cpipe->get_name ();
 }
 
 void zmq::shm_ipc_connection_t::timer_event (int id_)
@@ -181,7 +182,7 @@ int zmq::shm_ipc_connection_t::handle_syn_msg()
 #endif
     remote_mailfd = hs_msg->fd;
     //shm_buffer_size = hs_msg->buffer_size;
-    ring_name = hs_msg->conn_path;
+    ring_name = hs_msg->ring_name;
     std::cout << "handle_syn: Ring name: " << ring_name << "\n";
     create_ring (ring_name);
 
@@ -253,30 +254,16 @@ void zmq::shm_ipc_connection_t::init_conn ()
     std::cout << "In init_conn of connection\n";
 }
 
-int zmq::shm_ipc_connection_t::create_ring (std::string *ring_name = NULL)
+int zmq::shm_ipc_connection_t::create_ring (std::string ring_name)
 {
-    pipe_t *pipe = shm_create_ring (ring_name)
-    send_bind (socket, pipe, false);
-
-    /*
-     * At this point, we should have an in-memory queue which we can use to
-     * send messages.
-     */
-    return 0;
-}
-
-int zmq::shm_ipc_connection_t::prepare_mailbox ()
-{
-    alloc_cpipe();
-    init_cpipe();
-    void *mem = map_conn ();
-    std::cout << "Mem: " << mem << "\n";
+    shm_pipe_t pipe_type;
 
     if (conn_type == SHM_IPC_CONNECTER)
-        prepare_shm_pipe (mem);
+        pipe_type = SHM_PIPE_CONNECTER;
+    else
+        pipe_type = SHM_PIPE_LISTENER;
 
-    pipe_t *pipe = alloc_shm_pipe (mem);
-
+    pipe_t *pipe = shm_create_ring (&options, ring_name, pipe_type);
     send_bind (socket, pipe, false);
 
     /*

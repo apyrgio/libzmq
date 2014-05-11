@@ -32,6 +32,7 @@
 #include "i_poll_events.hpp"
 #include "pipe.hpp"
 #include "object.hpp"
+#include "options.hpp"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -88,7 +89,7 @@ namespace zmq
 				hs_msg_type phase;
 				int fd;
 				int shm_buffer_size;
-				char conn_path[HS_MAX_RING_NAME];
+				char ring_name[HS_MAX_RING_NAME];
 				char mailbox_name[HS_MAX_RING_NAME];
 			};
 
@@ -130,11 +131,11 @@ namespace zmq
 		private:
 
             void get_mailbox_info();
-            int create_ring (std::string ring_name = NULL);
+            int create_ring (std::string ring_name = "");
 			void generate_ring_name();
 			unsigned int get_ring_size();
 			unsigned int get_shm_size();
-			zmq::pipe_t *alloc_shm_pipe (void *mem);
+			pipe_t *alloc_shm_pipe (void *mem);
 			void prepare_shm_pipe (void *mem);
 			void *shm_allocate (unsigned int size);
 			void *shm_map (unsigned int size);

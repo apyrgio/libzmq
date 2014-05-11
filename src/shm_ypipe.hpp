@@ -29,12 +29,6 @@
 
 namespace zmq
 {
-
-    // These functions also need to be declared here, due to ADL
-    // FIXME: The inclusion strategy is borked up.
-    unsigned int get_ypipe_size ();
-    void *shm_map (std::string path, unsigned int size);
-
     //  Lock-free, shared-memory queue implementation.
     //  Only a single thread can read from the pipe at any specific moment.
     //  Only a single thread can write to the pipe at any specific moment.
@@ -45,12 +39,12 @@ namespace zmq
     {
     public:
         //  Creates the queue.
-        inline shm_ypipe_t (std::string path_, unsigned int offset = 0)
+        inline shm_ypipe_t (std::string name_, unsigned int offset = 0)
         {
             unsigned int size = get_ypipe_size ();
 
-            path = path_;
-            void *mem = shm_map (path, size);
+            name = name_;
+            void *mem = shm_map (name, size);
             mem = (void *)((char *)mem + offset);
 
             //prepare_shm_ring (mem, size);
@@ -58,7 +52,6 @@ namespace zmq
 			queue =	new (std::nothrow) shm_yqueue_t <T, N> (mem);
 			alloc_assert (queue);
 			ctrl = (struct ctrl_block_t *)mem;
-
         }
 
         //  The destructor doesn't have to be virtual. It is mad virtual
@@ -79,7 +72,7 @@ namespace zmq
 #endif
         inline std::string &get_name ()
         {
-            return path;
+            return name;
         }
 
         //  Write an item to the pipe.  Don't flush it yet. If incomplete is
@@ -165,12 +158,9 @@ namespace zmq
 			// Work your magic
 		}
 
-        //  The name of the pipe
-        std::string name;
-
     protected:
         // The shared memory path thatt this pipe corresponds to.
-        std::string path;
+        std::string name;
 
         // A control block where the must_signal flag is stored
         struct ctrl_block_t *ctrl;

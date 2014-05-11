@@ -56,7 +56,7 @@ zmq::shm_ipc_connecter_t::shm_ipc_connecter_t (class io_thread_t *io_thread_,
     zmq_assert (addr);
     zmq_assert (addr->protocol == "shm_ipc");
     addr->to_string (endpoint);
-    socket = session-> get_socket();
+    socket = session->get_socket();
 }
 
 zmq::shm_ipc_connecter_t::~shm_ipc_connecter_t ()

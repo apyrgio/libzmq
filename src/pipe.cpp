@@ -27,7 +27,7 @@
 #include "ypipe_conflate.hpp"
 #include "shm_ypipe.hpp"
 #include "shm_ipc_connection.hpp"
-#include "shm_utils.hpp"
+#include "shm_ring.hpp"
 
 int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
     int hwms_ [2], bool conflate_ [2])
@@ -100,8 +100,8 @@ int zmq::shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
     alloc_assert (shm_upipe_out);
     std::cout << "Pipe 2: " << shm_upipe_out << "\n";
 
-    *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe_in, shm_upipe_out,
-        hwms_ [1], hwms_ [0], conflate_);
+    *shm_pipe_ = new (std::nothrow) pipe_t (parent_, shm_upipe_in,
+            shm_upipe_out, hwms_ [1], hwms_ [0], conflate_);
     alloc_assert (shm_pipe_);
 
     (*shm_pipe_)->set_peer (NULL);
