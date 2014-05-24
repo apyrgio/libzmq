@@ -56,7 +56,7 @@ zmq::options_t::options_t () :
     gss_plaintext (false),
     socket_id (0),
     conflate (false),
-    handshake_ivl (30000)
+    handshake_ivl (30000),
 	shm_buffer_size (128 * 1024)
 {
 }

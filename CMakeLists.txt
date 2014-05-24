@@ -389,6 +389,8 @@ set(cxx-sources
         shm_ipc_connection.cpp
         shm_ypipe.cpp
         shm_yqueue.cpp
+        shm_mpipe.cpp
+        shm_utils.cpp
         kqueue.cpp
         lb.cpp
         mailbox.cpp
