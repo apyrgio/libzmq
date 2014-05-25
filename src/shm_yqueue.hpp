@@ -26,18 +26,10 @@
 
 #include "err.hpp"
 #include "atomic_ptr.hpp"
+#include "shm_utils.hpp"
 
 namespace zmq
 {
-
-    struct ctrl_block_t
-    {
-        volatile uint64_t initialized;
-        volatile uint64_t head;
-        volatile uint64_t tail;
-        volatile uint64_t unflushed;
-        volatile bool must_signal;
-    };
 
     //  yqueue is an efficient queue implementation. The main goal is
     //  to minimise number of allocations/deallocations needed. Thus yqueue

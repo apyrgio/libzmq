@@ -25,16 +25,33 @@
 #define SHM_PATH "/dev/shm/zeromq/"
 #define SHM_PATH_LEN 64
 
+#include <string>
+
 namespace zmq
 {
-    int shm_allocate(std::string path, unsigned int size);
+    struct ctrl_block_t
+    {
+        volatile uint64_t initialized;
+        volatile uint64_t head;
+        volatile uint64_t tail;
+        volatile uint64_t unflushed;
+        volatile bool must_signal;
+    };
+
+    unsigned int get_ring_size ();
     unsigned int get_ypipe_size ();
     void prepare_shm_ring (void *mem, unsigned int size);
     void prepare_shm_cpipe (void *mem, unsigned int size);
 
     // Shm* high-level functions
-    void shm_mkdir (const char &name);
-    void *shm_map (std::string path, unsigned int size);
+    void shm_mkdir (const std::string &name);
+    void *shm_map (std::string &name, unsigned int size);
+    int shm_allocate (std::string &name, unsigned int size);
+
+    std::string shm_generate_random_name (const std::string &prefix);
+    void __prepare_shm_pipe (void *mem);
+    void prepare_shm_ring (void *mem);
+    void prepare_shm_cpipe (void *mem);
 }
 
 #endif

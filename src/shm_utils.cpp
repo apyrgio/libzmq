@@ -22,28 +22,40 @@
 
 #include "random.hpp"
 #include "shm_utils.hpp"
+#include "config.hpp"
+#include "msg.hpp"
+#include "err.hpp"
 
-void zmq::shm_mkdir (const char &name)
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <fcntl.h>
+#include <string>
+#include <string.h>
+
+void zmq::shm_mkdir (const std::string &name)
 {
-    shm_path_t dir = SHM_PATH;
+    std::string dir = SHM_PATH;
 
-    zmq_assert (strlen(dir) + strlen(name) + 1 <= SHM_PATH_LEN)
-    strncat(dir, name, SHM_PATH_LEN);
-
-    int fd = mkdir(dir, 0600);
+    dir += name;
+    int fd = mkdir(dir.c_str(), 0600);
     close (fd);
 }
 
 // A uint32_t in hexademical is at most 8 characters. Prepend with
 // zeroes where necessary.
-shm_path_t &zmq::shm_generate_random_name (const char &prefix)
+std::string zmq::shm_generate_random_name (const std::string &prefix)
 {
-    shm_path_t name;
+    char name[SHM_PATH_LEN];
     uint32_t rand = zmq::generate_random ();
 
-    snprintf (name, "%s_%.8x", prefix, rand);
+    snprintf (name, SHM_PATH_LEN, "%s_%.8x", prefix.c_str(), rand);
 
-    return name;
+    return std::string(name);
 }
 
 // FIXME: What if ZMQ_SHM_BUFER_SIZE changes in the meantime?
@@ -54,67 +66,67 @@ unsigned int zmq::get_ring_size ()
 
 unsigned int zmq::get_ypipe_size ()
 {
-    unsigned int opt_size = sizeof shm_buffer_size;
+    //unsigned int opt_size = sizeof shm_buffer_size;
     unsigned int size;
-    int r;
+    //int r;
 
-    r = socket->getsockopt (ZMQ_SHM_BUFFER_SIZE, &shm_buffer_size, &opt_size);
-    zmq_assert (r >= 0);
+    //r = socket->getsockopt (ZMQ_SHM_BUFFER_SIZE, &shm_buffer_size, &opt_size);
+    //zmq_assert (r >= 0);
 
     size = 0;
     size += sizeof(struct zmq::ctrl_block_t);
     size += message_pipe_granularity * sizeof(zmq::msg_t);
-    size += shm_buffer_size;
+    //size += shm_buffer_size;
 
     return size;
 }
 
-void zmq::__prepare_shm_pipe (shm_path_t &name, void *mem, unsigned int size)
+void zmq::__prepare_shm_pipe (void *mem)
 {
     struct ctrl_block_t *ctrl = (struct ctrl_block_t *)mem;
     ctrl->initialized = 0;
     ctrl->must_signal = true;
-    ctrl->name = name;
 }
 
-void zmq::prepare_shm_ring (void *mem, unsigned int size)
+void zmq::prepare_shm_ring (void *mem)
 {
     unsigned int size = get_ypipe_size ();
     void *mem1 = mem;
     void *mem2 = (void *)((char *)mem + size);
 
-    __prepare_shm_pipe (name, mem1, size);
-    __prepare_shm_pipe (name, mem2, size);
+    __prepare_shm_pipe (mem1);
+    __prepare_shm_pipe (mem2);
 }
 
-void zmq::prepare_shm_cpipe (shm_path_t &name, void *mem)
+void zmq::prepare_shm_cpipe (void *mem)
 {
-    __prepare_shm_pipe (name, mem, 0);
+    __prepare_shm_pipe (mem);
 }
 
 
-shm_path_t &__shm_create_path_name(char *name)
+std::string __shm_create_path_name(std::string &name)
 {
-    shm_path_t path_name = "/zeromq/";
-    int len = 0;
+    //shm_path_t path_name = "/zeromq/";
+    //int len = 0;
 
-    len += strlen (path_name);
-    len += strlen (name);
+    //len += strlen (path_name);
+    //len += strlen (name);
 
-    zmq_assert(len <= SHM_PATH_LEN);
-    strncpy(path_name, name, SHM_PATH_LEN);
+    //zmq_assert(len <= SHM_PATH_LEN);
+    //strncpy(path_name, name, SHM_PATH_LEN);
+    std::string path_name = "/zeromq/" + name;
 
     return path_name;
 }
 
 // Create a file in shared memory using the provided name and size.
 // If a file with the same name exists, return -1 else abort.
-int zmq::shm_allocate (char *name, unsigned int size)
+int zmq::shm_allocate (std::string &name, unsigned int size)
 {
     int fd, r;
-    shm_path_t path_name = __shm_create_path_name(name);
+    std::string path_name = __shm_create_path_name(name);
 
-    fd = shm_open(path_name, O_RDWR|O_CREAT|O_EXCL, 0600);
+    fd = shm_open(path_name.c_str(), O_RDWR|O_CREAT|O_EXCL, 0600);
     if (fd < 0) {
         zmq_assert (errno == EEXIST);
         return -1;
@@ -127,11 +139,11 @@ int zmq::shm_allocate (char *name, unsigned int size)
     return 0;
 }
 
-void *zmq::shm_map (char *name, unsigned int size)
+void *zmq::shm_map (std::string &name, unsigned int size)
 {
-    shm_path_t path_name = __shm_create_path_name(name);
+    std::string path_name = __shm_create_path_name(name);
 
-    int fd = shm_open(path_name, O_RDWR, 0600);
+    int fd = shm_open(path_name.c_str(), O_RDWR, 0600);
     zmq_assert (fd >= 0);
 
     void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
