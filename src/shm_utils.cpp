@@ -35,7 +35,6 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <string>
-#include <string.h>
 
 void zmq::shm_mkdir (const std::string &name)
 {
@@ -56,12 +55,6 @@ std::string zmq::shm_generate_random_name (const std::string &prefix)
     snprintf (name, SHM_PATH_LEN, "%s_%.8x", prefix.c_str(), rand);
 
     return std::string(name);
-}
-
-// FIXME: What if ZMQ_SHM_BUFER_SIZE changes in the meantime?
-unsigned int zmq::get_ring_size ()
-{
-    return 2 * get_ypipe_size ();
 }
 
 unsigned int zmq::get_ypipe_size ()

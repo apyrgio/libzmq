@@ -27,7 +27,7 @@ zmq::shm_mpipe_t::shm_mpipe_t ()
     //  Get the pipe into passive state. That way, if the users starts by
     //  polling on the associated file descriptor it will get woken up when
     //  new command is posted.
-    bool ok = shm_cpipe.read (NULL);
+    bool ok = shm_cpipe->read (NULL);
     zmq_assert (!ok);
     active = false;
 }
@@ -51,8 +51,8 @@ zmq::fd_t zmq::shm_mpipe_t::get_fd ()
 void zmq::shm_mpipe_t::send (const command_t &cmd_)
 {
 	std::cout << "Send a command\n";
-    shm_cpipe.write (cmd_, false);
-    bool ok = shm_cpipe.flush ();
+    shm_cpipe->write (cmd_, false);
+    bool ok = shm_cpipe->flush ();
     //sync.unlock ();
     if (!ok) {
 		std::cout << "Must signal\n";
@@ -65,9 +65,10 @@ void zmq::shm_mpipe_t::send (const command_t &cmd_)
 int zmq::shm_mpipe_t::recv (command_t *cmd_, int timeout_)
 {
     zmq_assert (false);
+    return 0;
 }
 
-shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
+zmq::shm_cpipe_t *zmq::shm_alloc_cpipe (std::string name)
 {
     return new (std::nothrow) shm_cpipe_t (name);
 }
@@ -83,7 +84,7 @@ unsigned int zmq::get_cpipe_size ()
     return size;
 }
 
-shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name = "")
+zmq::shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
 {
     int r;
 
@@ -101,5 +102,3 @@ shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name = "")
 
     return shm_alloc_cpipe (pipe_name);
 }
-
-

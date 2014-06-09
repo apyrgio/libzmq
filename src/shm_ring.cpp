@@ -21,7 +21,7 @@
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
 #include "shm_ring.hpp"
-#include "shm_utils.cpp"
+#include "shm_utils.hpp"
 
 unsigned int zmq::get_ring_size ()
 {
@@ -29,44 +29,4 @@ unsigned int zmq::get_ring_size ()
 }
 
 
-pipe_t *zmq::shm_create_ring (options_t *options, std::string ring_name,
-        shm_pipe_t pipe_type)
-{
-    int r;
-
-    shm_mkdir ("zeromq");
-    unsigned int size = get_ring_size ();
-
-    if (ring_name = "") {
-        // If allocation fails due to a duplicate name, retry.
-        // Note that this is uncommon, but we must handle it anyway.
-        do {
-            ring_name = shm_generate_random_name ("ring");
-            r = shm_allocate (ring_name, size);
-        } while (r < 0);
-    }
-
-    return shm_alloc_pipe (options, ring_name, pipe_type);
-}
-
-zmq::pipe_t *zmq::shm_alloc_pipe (options_t *options, std::string path,
-        shm_pipe_t pipe_type)
-{
-    bool conflate = options->conflate &&
-        (options->type == ZMQ_DEALER ||
-         options->type == ZMQ_PULL ||
-         options->type == ZMQ_PUSH ||
-         options->type == ZMQ_PUB ||
-         options->type == ZMQ_SUB);
-
-    pipe_t *pipe;
-    int r;
-
-    int hwms[2] = {conflate? -1 : options->rcvhwm,
-        conflate? -1 : options->sndhwm};
-
-    r = zmq::shm_pipe (socket, &pipe, hwms, conflate, path, pipe_type);
-    zmq_assert (r >= 0);
-
-    return pipe;
-}
+#endif

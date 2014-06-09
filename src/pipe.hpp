@@ -24,6 +24,7 @@
 #include "ypipe_base.hpp"
 #include "config.hpp"
 #include "object.hpp"
+#include "options.hpp"
 #include "stdint.hpp"
 #include "array.hpp"
 #include "blob.hpp"
@@ -49,7 +50,14 @@ namespace zmq
         int hwms_ [2], bool conflate_ [2]);
 
     int shm_pipe (class object_t *parent_, class pipe_t **shm_pipe_,
-        int hwms_ [2], bool conflate_, std::string path, shm_pipe_t pipe_type);
+            int hwms_ [2], bool conflate_, std::string path,
+            shm_pipe_t pipe_type);
+
+    pipe_t *shm_create_ring (object_t *parent_, options_t *options,
+            std::string ring_name, shm_pipe_t pipe_type);
+
+    zmq::pipe_t *shm_alloc_pipe (object_t *parent_, options_t *options,
+            std::string path, shm_pipe_t pipe_type);
 
     struct i_pipe_events
     {

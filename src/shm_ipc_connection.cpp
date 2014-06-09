@@ -52,6 +52,7 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
         zmq::socket_base_t *socket_, const options_t &options_,
         std::string addr_) :
     object_t (parent_),
+    parent (parent_),
     options (options_),
     socket (socket_),
     local_sockfd (fd_),
@@ -67,6 +68,7 @@ zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
 zmq::shm_ipc_connection_t::shm_ipc_connection_t (object_t *parent_, fd_t fd_,
         zmq::socket_base_t *socket_, const options_t &options_) :
     object_t (parent_),
+    parent (parent_),
     options (options_),
     socket (socket_),
     local_sockfd (fd_),
@@ -241,18 +243,18 @@ int zmq::shm_ipc_connection_t::handle_ack_msg()
     return 0;
 }
 
-void *zmq::shm_ipc_connection_t::map_conn ()
-{
-    std::cout << "In map_conn of connection\n";
+//void *zmq::shm_ipc_connection_t::map_conn ()
+//{
+    //std::cout << "In map_conn of connection\n";
 
-    unsigned int size = get_shm_size ();
-    return shm_map (size);
-}
+    //unsigned int size = get_shm_size ();
+    //return shm_map (size);
+//}
 
-void zmq::shm_ipc_connection_t::init_conn ()
-{
-    std::cout << "In init_conn of connection\n";
-}
+//void zmq::shm_ipc_connection_t::init_conn ()
+//{
+    //std::cout << "In init_conn of connection\n";
+//}
 
 int zmq::shm_ipc_connection_t::create_ring (std::string ring_name)
 {
@@ -263,7 +265,7 @@ int zmq::shm_ipc_connection_t::create_ring (std::string ring_name)
     else
         pipe_type = SHM_PIPE_LISTENER;
 
-    pipe_t *pipe = shm_create_ring (&options, ring_name, pipe_type);
+    pipe_t *pipe = shm_create_ring (parent, &options, ring_name, pipe_type);
     send_bind (socket, pipe, false);
 
     /*

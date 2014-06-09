@@ -156,6 +156,13 @@ namespace zmq
 		inline void mark_inactive ()
 		{
 			// Work your magic
+            return;
+		}
+
+		inline void mark_active ()
+		{
+			// Work your magic
+            return;
 		}
 
     protected:

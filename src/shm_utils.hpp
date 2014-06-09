@@ -26,6 +26,7 @@
 #define SHM_PATH_LEN 64
 
 #include <string>
+#include <stdint.h>
 
 namespace zmq
 {
@@ -38,7 +39,6 @@ namespace zmq
         volatile bool must_signal;
     };
 
-    unsigned int get_ring_size ();
     unsigned int get_ypipe_size ();
     void prepare_shm_ring (void *mem, unsigned int size);
     void prepare_shm_cpipe (void *mem, unsigned int size);

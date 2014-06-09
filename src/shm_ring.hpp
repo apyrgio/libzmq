@@ -22,18 +22,10 @@
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
-#include "options.hpp"
-#include "pipe.hpp"
-
 namespace zmq
 {
     enum shm_pipe_t {SHM_PIPE_CONNECTER, SHM_PIPE_LISTENER};
     unsigned int get_ring_size ();
-
-    pipe_t *shm_create_ring (options_t *options, std::string ring_name,
-            shm_pipe_t pipe_type);
-    pipe_t *shm_alloc_pipe (options_t *options, std::string path,
-            shm_pipe_t pipe_type);
 }
 
 #endif

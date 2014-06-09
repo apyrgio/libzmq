@@ -36,9 +36,12 @@ namespace zmq
     // The definition for shared memory command pipes
     typedef shm_ypipe_t <command_t, command_pipe_granularity> shm_cpipe_t;
 
+    shm_cpipe_t *shm_alloc_cpipe (std::string name);
+    unsigned int get_cpipe_size ();
     // A function for creating cpipes in shared memory. While normally part of
     // shm_mpipe, it is exported for mailboxes that simply need an shm_cpipe.
-    shm_cpipe_t *shm_create_cpipe ();
+    shm_cpipe_t *shm_create_cpipe (std::string pipe_name = "");
+
 
     class shm_mpipe_t
     {

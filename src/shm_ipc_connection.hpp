@@ -58,6 +58,9 @@ namespace zmq
 
 		protected:
 
+			// The parent of the object
+			object_t *parent;
+
 			// The options of the socket
 			options_t options;
 
