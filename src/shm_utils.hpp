@@ -22,7 +22,6 @@
 
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS
 
-#define SHM_PATH "/dev/shm/zeromq/"
 #define SHM_PATH_LEN 64
 
 #include <string>
@@ -44,7 +43,6 @@ namespace zmq
     void prepare_shm_cpipe (void *mem, unsigned int size);
 
     // Shm* high-level functions
-    void shm_mkdir (const std::string &name);
     void *shm_map (std::string &name, unsigned int size);
     int shm_allocate (std::string &name, unsigned int size);
 

@@ -113,6 +113,8 @@ void zmq::shm_ipc_connection_t::in_event ()
 {
     int r;
 
+	std::cout << "In in_event of connection\n";
+
     switch (conn_state) {
     case SHM_IPC_STATE_EXPECT_SYN:
         r = handle_syn_msg();

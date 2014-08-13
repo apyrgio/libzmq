@@ -135,13 +135,6 @@ namespace zmq
 
             void get_mailbox_info();
             int create_ring (std::string ring_name = "");
-			void generate_ring_name();
-			unsigned int get_ring_size();
-			unsigned int get_shm_size();
-			pipe_t *alloc_shm_pipe (void *mem);
-			void prepare_shm_pipe (void *mem);
-			void *shm_allocate (unsigned int size);
-			void *shm_map (unsigned int size);
 
 			void *map_conn();
 			void alloc_conn();

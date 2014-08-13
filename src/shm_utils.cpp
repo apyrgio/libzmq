@@ -35,7 +35,11 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <string>
+#include <iostream>
 
+
+// FIXME: shm_mkdir is considered useless
+#if 0
 void zmq::shm_mkdir (const std::string &name)
 {
     std::string dir = SHM_PATH;
@@ -44,15 +48,20 @@ void zmq::shm_mkdir (const std::string &name)
     int fd = mkdir(dir.c_str(), 0600);
     close (fd);
 }
+#endif
 
 // A uint32_t in hexademical is at most 8 characters. Prepend with
 // zeroes where necessary.
 std::string zmq::shm_generate_random_name (const std::string &prefix)
 {
     char name[SHM_PATH_LEN];
-    uint32_t rand = zmq::generate_random ();
+    uint32_t rand;
+
+    seed_random ();
+    rand = generate_random ();
 
     snprintf (name, SHM_PATH_LEN, "%s_%.8x", prefix.c_str(), rand);
+    std::cout << "Generated name is: " << name << "\n";
 
     return std::string(name);
 }
@@ -107,7 +116,7 @@ std::string __shm_create_path_name(std::string &name)
 
     //zmq_assert(len <= SHM_PATH_LEN);
     //strncpy(path_name, name, SHM_PATH_LEN);
-    std::string path_name = "/zeromq/" + name;
+    std::string path_name = "/zeromq_" + name;
 
     return path_name;
 }
@@ -118,9 +127,11 @@ int zmq::shm_allocate (std::string &name, unsigned int size)
 {
     int fd, r;
     std::string path_name = __shm_create_path_name(name);
+    std::cout << "shm_allocate: Path name: " << path_name << "\n";
 
     fd = shm_open(path_name.c_str(), O_RDWR|O_CREAT|O_EXCL, 0600);
     if (fd < 0) {
+        perror("shm_open");
         zmq_assert (errno == EEXIST);
         return -1;
     }

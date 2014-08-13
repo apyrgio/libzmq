@@ -88,14 +88,16 @@ zmq::shm_cpipe_t *zmq::shm_create_cpipe (std::string pipe_name)
 {
     int r;
 
-    shm_mkdir ("zeromq");
+    //shm_mkdir ("zeromq");
     unsigned int size = get_cpipe_size ();
 
     // If allocation fails due to a duplicate name, retry.
     // Note that this is uncommon, but we must handle it anyway.
+    std::cout << "Creating new pipe\n";
     if (pipe_name == "") {
         do {
             pipe_name = shm_generate_random_name ("cpipe");
+            std::cout << "Name: " << pipe_name << ", size: " << size << "\n";
             r = shm_allocate (pipe_name, size);
         } while (r < 0);
     }

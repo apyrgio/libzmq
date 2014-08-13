@@ -173,6 +173,7 @@ void zmq::socket_base_t::create_shm_mailbox ()
     if (shm_cpipe) {
 		return;
     }
+    std::cout << "On create_shm_mailbox: no cpipe found for mailbox: " << m << "\n";
 
     m->shm_cpipe = shm_create_cpipe ();
     alloc_assert(m->shm_cpipe);
@@ -666,6 +667,7 @@ int zmq::socket_base_t::connect (const char *addr_)
         }
 
         create_shm_mailbox ();
+        std::cout << "Mailbox created successfully\n";
     }
 #endif
 #if !defined ZMQ_HAVE_WINDOWS && !defined ZMQ_HAVE_OPENVMS

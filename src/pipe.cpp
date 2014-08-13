@@ -136,7 +136,7 @@ zmq::pipe_t *zmq::shm_create_ring (object_t *parent_, options_t *options,
 {
     int r;
 
-    shm_mkdir ("zeromq");
+    //shm_mkdir ("zeromq");
     unsigned int size = get_ring_size ();
 
     if (ring_name == "") {
