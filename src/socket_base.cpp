@@ -162,7 +162,7 @@ zmq::mailbox_t *zmq::socket_base_t::get_mailbox ()
 
 /**
  * Create a mailbox in shared memory where shm sockets can send commands to.
- * Note that a new mailbox is not actually created. Mereyly, an shm command pipe
+ * Note that a new mailbox is not actually created. Merely, an shm command pipe
  * is attached to the existing one.
  */
 void zmq::socket_base_t::create_shm_mailbox ()
@@ -171,12 +171,14 @@ void zmq::socket_base_t::create_shm_mailbox ()
     zmq::shm_cpipe_t *shm_cpipe = m->shm_cpipe;
 
     if (shm_cpipe) {
+        std::cout << "cpipe found for mailbox: " << shm_cpipe->get_name() << "\n";
 		return;
     }
     std::cout << "On create_shm_mailbox: no cpipe found for mailbox: " << m << "\n";
 
     m->shm_cpipe = shm_create_cpipe ();
     alloc_assert(m->shm_cpipe);
+    std::cout << "On create_shm_mailbox: created cpipe with name: " << m->shm_cpipe->get_name() << "\n";
 }
 
 void zmq::socket_base_t::stop ()
@@ -371,6 +373,14 @@ int zmq::socket_base_t::getsockopt (int option_, void *optval_,
 
 int zmq::socket_base_t::bind (const char *addr_)
 {
+    //mailbox_t *m = get_mailbox ();
+    //zmq::shm_cpipe_t *shm_cpipe = m->shm_cpipe;
+
+    //if (shm_cpipe) {
+    //    std::cout << "cpipe found for mailbox: " << shm_cpipe->get_name() << "\n";
+	//    return -1;
+    //}
+
     if (unlikely (ctx_terminated)) {
         errno = ETERM;
         return -1;

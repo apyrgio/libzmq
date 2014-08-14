@@ -70,7 +70,7 @@ namespace zmq
 #pragma message save
 #pragma message disable(UNINIT)
 #endif
-        inline std::string &get_name ()
+        inline std::string get_name ()
         {
             return name;
         }
@@ -166,7 +166,7 @@ namespace zmq
 		}
 
     protected:
-        // The shared memory path thatt this pipe corresponds to.
+        // The shared memory name that this pipe corresponds to.
         std::string name;
 
         // A control block where the must_signal flag is stored

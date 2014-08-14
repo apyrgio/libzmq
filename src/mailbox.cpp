@@ -29,6 +29,8 @@ zmq::mailbox_t::mailbox_t ()
     bool ok = cpipe.read (NULL);
     zmq_assert (!ok);
     active = false;
+    // FIXME: Is this necessary?
+    shm_cpipe = NULL;
 }
 
 zmq::mailbox_t::~mailbox_t ()

@@ -59,7 +59,7 @@ int main (void)
     assert (rc == 0);
 
 	// Here comes the difficult part
-	sleep (2);
+	sleep (1);
 	std::cout<<"Send the angel of death\n";
 	rc = zmq_send (sc, "DEATH!", 7, 0);
 	assert (rc == 7);
